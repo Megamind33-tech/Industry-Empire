@@ -26,10 +26,10 @@ index e76eb15..54ab076 100644
  void StartScenarioEditor();
  
 diff --git a/src/genworld_gui.cpp b/src/genworld_gui.cpp
-index 00a3301..54e8643 100644
+index 00a3301..af86a17 100644
 --- a/src/genworld_gui.cpp
 +++ b/src/genworld_gui.cpp
-@@ -32,8 +32,12 @@
+@@ -32,8 +32,14 @@
  #include "townname_type.h"
  #include "video/video_driver.hpp"
  #include "ai/ai_gui.hpp"
@@ -39,10 +39,12 @@ index 00a3301..54e8643 100644
  #include "industry.h"
 +#include "landscape_type.h"
 +#include "zoom_func.h"
++#include "fileio_func.h"
++#include "openttd.h"
  
  #include "widgets/genworld_widget.h"
  
-@@ -309,6 +313,48 @@ static constexpr NWidgetPart _nested_heightmap_load_widgets[] = {
+@@ -309,6 +315,65 @@ static constexpr NWidgetPart _nested_heightmap_load_widgets[] = {
  	EndContainer(),
  };
  
@@ -79,19 +81,36 @@ index 00a3301..54e8643 100644
 +	_settings_newgame.difficulty.terrain_type = 2;
 +	_settings_newgame.difficulty.max_no_competitors = 0;
 +	_settings_newgame.difficulty.vehicle_breakdowns = 0;
++	/* High variety and medium rivers, not the maximum of either slider.
++	 * Hilly (not alpine) terrain, rough (not very rough) noise, and the
++	 * improved tree placer so forests clump instead of carpeting the map. */
 +	_settings_newgame.game_creation.variety = 4;
 +	_settings_newgame.game_creation.amount_of_rivers = 2;
++	_settings_newgame.game_creation.tree_placer = 2;
++	_settings_newgame.game_creation.tgen_smoothness = TGEN_SMOOTHNESS_ROUGH;
++	/* 0 = trees grow in place but do not spread across open ground. */
++	_settings_newgame.construction.extra_tree_placement = 0;
 +	_settings_newgame.game_creation.starting_year = CalendarTime::DEF_START_YEAR;
 +
 +	Game::Rescan();
 +	GameConfig::GetConfig(GameConfig::SSS_FORCE_NEWGAME)->Change("First Route");
++
++	std::string scenario = FioFindFullPath(SCENARIO_DIR, "Coastal Valley.scn");
++	if (!scenario.empty()) {
++		CloseAllNonVitalWindows();
++		ClearErrorMessages();
++		_file_to_saveload.name = std::move(scenario);
++		_file_to_saveload.SetMode(SLO_LOAD, FT_SCENARIO, DFT_GAME_FILE);
++		_switch_mode = SM_LOAD_GAME;
++		return;
++	}
 +	StartNewGameWithoutGUI(GENERATE_NEW_SEED);
 +}
 +
  static void StartGeneratingLandscape(GenerateLandscapeWindowMode mode)
  {
  	CloseAllNonVitalWindows();
-@@ -432,7 +478,9 @@ struct GenerateLandscapeWindow : public Window {
+@@ -432,7 +497,9 @@ struct GenerateLandscapeWindow : public Window {
  					SetDParam(0, STR_NUM_CUSTOM_NUMBER);
  					SetDParam(1, _settings_newgame.game_creation.custom_town_number);
  				} else {
@@ -102,7 +121,7 @@ index 00a3301..54e8643 100644
  				}
  				break;
  
-@@ -738,6 +786,9 @@ struct GenerateLandscapeWindow : public Window {
+@@ -738,6 +805,9 @@ struct GenerateLandscapeWindow : public Window {
  						STR_WARNING_HEIGHTMAP_SCALE_MESSAGE,
  						this,
  						LandscapeGenerationCallback);
@@ -112,7 +131,7 @@ index 00a3301..54e8643 100644
  				} else {
  					StartGeneratingLandscape(mode);
  				}
-@@ -1351,7 +1402,7 @@ static constexpr NWidgetPart _nested_generate_progress_widgets[] = {
+@@ -1351,7 +1421,7 @@ static constexpr NWidgetPart _nested_generate_progress_widgets[] = {
  		NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.modalpopup),
  			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_BAR), SetFill(1, 0),
  			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_TEXT), SetFill(1, 0),
@@ -121,7 +140,7 @@ index 00a3301..54e8643 100644
  		EndContainer(),
  	EndContainer(),
  };
-@@ -1427,10 +1478,10 @@ struct GenerateProgressWindow : public Window {
+@@ -1427,10 +1497,10 @@ struct GenerateProgressWindow : public Window {
  		switch (widget) {
  			case WID_GP_PROGRESS_BAR: {
  				SetDParamMaxValue(0, 100);
@@ -135,7 +154,7 @@ index 00a3301..54e8643 100644
  				break;
  			}
  
-@@ -1452,7 +1503,7 @@ struct GenerateProgressWindow : public Window {
+@@ -1452,7 +1522,7 @@ struct GenerateProgressWindow : public Window {
  				Rect br = r.Shrink(WidgetDimensions::scaled.bevel);
  				DrawFrameRect(br.WithWidth(br.Width() * _gws.percent / 100, false), COLOUR_MAUVE, FR_NONE);
  				SetDParam(0, _gws.percent);
@@ -196,7 +215,7 @@ index 3c9fc98..4e0d8d7 100644
  
  				NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_BASESET_SELECTION),
 diff --git a/src/lang/english.txt b/src/lang/english.txt
-index 3554d5d..50da8be 100644
+index 3554d5d..595790c 100644
 --- a/src/lang/english.txt
 +++ b/src/lang/english.txt
 @@ -2204,9 +2204,11 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... no c
@@ -216,7 +235,7 @@ index 3554d5d..50da8be 100644
  STR_INTRO_QUIT                                                  :{BLACK}Exit
  
  STR_INTRO_TOOLTIP_NEW_GAME                                      :{BLACK}Start a new game. Ctrl+Click skips map configuration
-+STR_INTRO_TOOLTIP_QUICK_START                                   :{BLACK}Start a 256 by 256 temperate map, with about 15 towns, and a bus-route tutorial. Play this again to replay the tutorial
++STR_INTRO_TOOLTIP_QUICK_START                                   :{BLACK}Open the Coastal Valley scenario: hills, a river, forests, a sample bus route, and the tutorial. Play this again to replay it
 +STR_INTRO_TOOLTIP_WORLD_GENERATION                              :{BLACK}Choose the map size, number of towns, climate, and other generation settings
  STR_INTRO_TOOLTIP_LOAD_GAME                                     :{BLACK}Load a saved game
  STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP                                :{BLACK}Start a new game, using a heightmap as landscape

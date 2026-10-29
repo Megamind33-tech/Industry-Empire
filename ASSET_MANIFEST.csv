@@ -1,9 +1,11 @@
 source,licence,dimensions,purpose,dependency,status
-OpenGFX 7.1,GPL-2.0,OpenTTD base-set sprites,terrain vehicles buildings industries,OpenTTD 14.1 baseset,integrated in APK
+OpenGFX 7.1,GPL-2.0,OpenTTD base-set sprites,fallback terrain vehicles buildings industries,OpenTTD 14.1 baseset,integrated in APK and selectable in Game Options
 OpenSFX 1.0.3,CC BY-SA 3.0,sound effects,UI and world audio,OpenTTD 14.1 baseset,integrated unchanged
 OpenMSX 0.4.2,GPL-2.0,MIDI music via Timidity,background music,OpenTTD 14.1 baseset,integrated unchanged
 Industry Empire launcher icon,GPL-2.0,512x512 PNG,Android launcher icon,none,integrated
-OpenGFX2,GPL-2.0,high-resolution NewGRF,not audited,OpenTTD NewGRF,excluded
+OpenGFX2 Classic 0.8.1,GPL-2.0,8bpp normal-zoom baseset,default terrain vehicles buildings industries,OpenTTD 14.1 baseset,integrated in APK as the default graphics set
+OpenGFX2 High Def 0.8.1,GPL-2.0,32bpp extra-zoom baseset,not shipped,about 383 MB uncompressed,excluded because extra.grf is about 255 MB and GitHub rejects files over 100 MB
+Coastal Valley scenario,GPL-2.0,256x256 heightmap save,starter map with a sample bus route,Quick Start,integrated in APK
 First Route tutorial,GPL-2.0,game script text,bus-route onboarding,OpenTTD 14 game script API,integrated in APK
-curated map presets,n/a,scenario files,not generated,scenario editor,not included
-new city and industry sprite families,n/a,isometric sprites,not drawn,OpenGFX replacement,not included
+OpenGFX2 station tram tree and object NewGRFs,GPL-2.0,optional NewGRFs,not stacked on Classic,see docs/GRAPHICS.md,audited and excluded
+new city and industry sprite families,n/a,isometric sprites,not drawn,OpenGFX2 Classic is the reused replacement,not drawn for this release

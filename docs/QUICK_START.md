@@ -6,22 +6,22 @@ OpenTTD does not store a fixed town count for the Normal, Low, and High settings
 
 The generation window prints that number under "Town generation" as `current / total`. It is the number of towns being placed, not a separate bug in the counter.
 
-Quick Start ignores the saved map size and always uses:
+Quick Start opens the Coastal Valley scenario when that file is in the install. The scenario is a 256×256 temperate heightmap with a coast, a river inlet, hills, forests, towns, and a sample bus route. The First Route story asks you to buy a second bus. If the scenario file is missing, Quick Start generates a new map instead:
 
 - 256×256 temperate map
 - Low town density, about 15 towns
 - Normal industries
-- Hilly terrain and high terrain variety, using the existing OpenGFX sprites
+- Hilly terrain, high variety, medium rivers, and forests that grow in place but do not spread across open ground
 - No rival companies and no vehicle breakdowns
 - Year 1950
 - The First Route game script
 
 World Generation is still on the main menu. If the chosen settings would place more than about 150 towns, the game asks before it starts. The town dropdown shows the estimate, for example `Normal (about 6144 towns)` on a 4096 map.
 
-The tutorial is a game script in the APK at `game/industry-empire-tutorial`. It opens a story page and two goals: buy a bus, then earn passenger income. Skip tutorial and Replay tutorial are buttons on that page. Starting Quick Start again also starts a new tutorial game.
+The tutorial is a game script in the APK at `game/industry-empire-tutorial`. On Coastal Valley it points at the sample route and asks for a second bus, then passenger income. On a generated map the same goals are the first bus and passenger income. Skip tutorial and Replay tutorial are buttons on that page.
 
 An upgrade deletes the previous `openttd.cfg` so an old 4096×4096 setting does not come back. Saved games are left in place.
 
-OpenGFX2 and newly rendered building sprites are not in this build. High terrain variety is the OpenTTD setting that reduces obvious grass repetition with the sprites already in OpenGFX 7.1.
+Version 1.2 draws that world with OpenGFX2 Classic. OpenGFX 7.1 remains selectable in Game Options. The graphics audit, the High Def size blocker, and the Linux SDL measurements are in `docs/GRAPHICS.md`.
 
-APK SHA-256: `7f16396f265865d6d112774aae02e7773c2dda652c72c8e7dc16be4177d05bfb`
+1.2 APK SHA-256: `ba98e9ee3d0162e4c44dbe38110d52c3d8259545d95464f0ba862817c2feba45`
