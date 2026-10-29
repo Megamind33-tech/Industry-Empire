@@ -1,0 +1,179 @@
+diff --git a/project/jni/Android.mk b/project/jni/Android.mk
+index 5bd2d5f..b65b5dc 100644
+--- a/project/jni/Android.mk
++++ b/project/jni/Android.mk
+@@ -1,3 +1,6 @@
++# Capture this directory before any include. NDK my-dir follows the last included makefile.
++JNI_PATH := $(call my-dir)
++
+ # If SDL_Mixer should link to GPL-polluted libMAD (TODO: move this out of here)
+ SDL_MIXER_USE_LIBMAD :=
+ ifneq ($(strip $(filter mad, $(COMPILED_LIBRARIES))),)
+@@ -30,4 +33,8 @@ else
+ NDK_PATH := $(shell dirname $(shell which ndk-build))
+ endif
+ 
+-include $(call all-subdir-makefiles)
++# SDL2_mixer pulls optional codec trees (libgme and others) that OpenTTD does not ship or link.
++# NDK r29 parses every top-level Android.mk, so skip that unused module.
++include $(filter-out $(JNI_PATH)/sdl2_mixer/Android.mk,$(wildcard $(JNI_PATH)/*/Android.mk))
++# libogg sources live in the SDL2_mixer tree. OpenTTD's module list still builds ogg.
++include $(JNI_PATH)/sdl2_mixer/external/ogg/Android.mk
+diff --git a/project/jni/Application.mk b/project/jni/Application.mk
+index 64f5023..04d38fb 100644
+--- a/project/jni/Application.mk
++++ b/project/jni/Application.mk
+@@ -3,6 +3,8 @@ APP_PROJECT_PATH := $(call my-dir)/..
+ include jni/Settings.mk
+ 
+ APP_STL := c++_shared
++# NDK r21+ aborts when an unused Android.mk module references a library this app does not build.
++APP_ALLOW_MISSING_DEPS := true
+ 
+ APP_CFLAGS := -g
+ ifneq ($(NDK_DEBUG),1)
+diff --git a/project/jni/application/openttd/AndroidAppSettings.cfg b/project/jni/application/openttd/AndroidAppSettings.cfg
+index e04542f..7c2b396 100644
+--- a/project/jni/application/openttd/AndroidAppSettings.cfg
++++ b/project/jni/application/openttd/AndroidAppSettings.cfg
+@@ -1,16 +1,16 @@
+ # The application settings for Android libSDL port
+ 
+ # Specify application name (e.x. My Application)
+-AppName="OpenTTD"
++AppName="Industry Empire"
+ 
+ # Specify reversed site name of application (e.x. com.mysite.myapp)
+ AppFullName=org.openttd.sdl
+ 
+ # Application version code (integer)
+-AppVersionCode=1410128
++AppVersionCode=1410129
+ 
+ # Application user-visible version name (string)
+-AppVersionName="14.1.rev128"
++AppVersionName="1.0-ottd14.1"
+ 
+ # Specify path to download application data in zip archive in the form "Description|URL|MirrorURL^Description2|URL2|MirrorURL2^...'
+ # If you'll start Description with '!' symbol it will be enabled by default, '!!' will also hide the entry from the menu, so it cannot be disabled
+@@ -135,6 +135,9 @@ ShowMouseCursor=n
+ # Screen follows mouse cursor, when it's covered by soft keyboard, this works only in software video mode (y) or (n)
+ ScreenFollowsMouse=
+ 
++# Pinch-zoom gesture will zoom the whole screen centered on mouse cursor, this works only in software video mode (y) or (n)
++ScreenPinchZoom=
++
+ # Generate more touch events, by default SDL generates one event per one video frame, this is useful for drawing apps (y) or (n)
+ GenerateSubframeTouchEvents=
+ 
+@@ -254,14 +257,13 @@ RedefinedKeysFourthGamepad=""
+ StartupMenuButtonTimeout=1500
+ 
+ # Menu items to hide from startup menu, available menu items (SDL 1.2 only):
+-#  SettingsMenu.OkButton SettingsMenu.DummyMenu SettingsMenu.MainMenu  SettingsMenuMisc.DownloadConfig SettingsMenuMisc.OptionalDownloadConfig SettingsMenuMisc.AudioConfig SettingsMenuMisc.VideoSettingsConfig SettingsMenuMisc.ShowReadme SettingsMenuMisc.GyroscopeCalibration SettingsMenuMisc.StorageAccessConfig SettingsMenuMisc.CommandlineConfig SettingsMenuMisc.ResetToDefaultsConfig  SettingsMenuMouse.MouseConfigMainMenu SettingsMenuMouse.DisplaySizeConfig SettingsMenuMouse.LeftClickConfig SettingsMenuMouse.RightClickConfig SettingsMenuMouse.AdditionalMouseConfig SettingsMenuMouse.JoystickMouseConfig SettingsMenuMouse.TouchPressureMeasurementTool SettingsMenuMouse.CalibrateTouchscreenMenu  SettingsMenuKeyboard.KeyboardConfigMainMenu SettingsMenuKeyboard.ScreenKeyboardSizeConfig SettingsMenuKeyboard.ScreenKeyboardDrawSizeConfig SettingsMenuKeyboard.ScreenKeyboardThemeConfig SettingsMenuKeyboard.ScreenKeyboardTransparencyConfig SettingsMenuKeyboard.RemapHwKeysConfig SettingsMenuKeyboard.RemapScreenKbConfig SettingsMenuKeyboard.ScreenGesturesConfig SettingsMenuKeyboard.CustomizeScreenKbLayout SettingsMenuKeyboard.ScreenKeyboardAdvanced
+-
++#  SettingsMenu.OkButton SettingsMenu.DummyMenu SettingsMenu.MainMenu  SettingsMenuMisc.DownloadConfig SettingsMenuMisc.OptionalDownloadConfig SettingsMenuMisc.AudioConfig SettingsMenuMisc.VideoSettingsConfig SettingsMenuMisc.ShowReadme SettingsMenuMisc.GyroscopeCalibration SettingsMenuMisc.StorageAccessConfig SettingsMenuMisc.CommandlineConfig SettingsMenuMisc.ResetToDefaultsConfig  SettingsMenuMouse.MouseConfigMainMenu SettingsMenuMouse.DisplaySizeConfig SettingsMenuMouse.LeftClickConfig SettingsMenuMouse.RightClickConfig SettingsMenuMouse.AdditionalMouseConfig SettingsMenuMouse.JoystickMouseConfig SettingsMenuMouse.TouchPressureMeasurementTool SettingsMenuMouse.CalibrateTouchscreenMenu  SettingsMenuKeyboard.KeyboardConfigMainMenu SettingsMenuKeyboard.ScreenKeyboardSizeConfig SettingsMenuKeyboard.ScreenKeyboardDrawSizeConfig SettingsMenuKeyboard.ScreenKeyboardThemeConfig SettingsMenuKeyboard.ScreenKeyboardTransparencyConfig SettingsMenuKeyboard.RemapHwKeysConfig SettingsMenuKeyboard.RemapScreenKbConfig SettingsMenuKeyboard.ScreenGesturesConfig SettingsMenuKeyboard.CustomizeScreenKbLayout SettingsMenuKeyboard.ScreenKeyboardAdvanced 
+ HiddenMenuOptions='SettingsMenuMouse.DisplaySizeConfig'
+ 
+ # Menu items to show at startup - this is Java code snippet, leave empty for default
+ # new SettingsMenuMisc.ShowReadme(), (AppUsesMouse \&\& \! ForceRelativeMouseMode \? new SettingsMenuMouse.DisplaySizeConfig(true) : new SettingsMenu.DummyMenu()), new SettingsMenuMisc.OptionalDownloadConfig(true), new SettingsMenuMisc.GyroscopeCalibration()
+ # Available menu items:
+-#  SettingsMenu.OkButton SettingsMenu.DummyMenu SettingsMenu.MainMenu  SettingsMenuMisc.DownloadConfig SettingsMenuMisc.OptionalDownloadConfig SettingsMenuMisc.AudioConfig SettingsMenuMisc.VideoSettingsConfig SettingsMenuMisc.ShowReadme SettingsMenuMisc.GyroscopeCalibration SettingsMenuMisc.StorageAccessConfig SettingsMenuMisc.CommandlineConfig SettingsMenuMisc.ResetToDefaultsConfig  SettingsMenuMouse.MouseConfigMainMenu SettingsMenuMouse.DisplaySizeConfig SettingsMenuMouse.LeftClickConfig SettingsMenuMouse.RightClickConfig SettingsMenuMouse.AdditionalMouseConfig SettingsMenuMouse.JoystickMouseConfig SettingsMenuMouse.TouchPressureMeasurementTool SettingsMenuMouse.CalibrateTouchscreenMenu  SettingsMenuKeyboard.KeyboardConfigMainMenu SettingsMenuKeyboard.ScreenKeyboardSizeConfig SettingsMenuKeyboard.ScreenKeyboardDrawSizeConfig SettingsMenuKeyboard.ScreenKeyboardThemeConfig SettingsMenuKeyboard.ScreenKeyboardTransparencyConfig SettingsMenuKeyboard.RemapHwKeysConfig SettingsMenuKeyboard.RemapScreenKbConfig SettingsMenuKeyboard.ScreenGesturesConfig SettingsMenuKeyboard.CustomizeScreenKbLayout SettingsMenuKeyboard.ScreenKeyboardAdvanced
++#  SettingsMenu.OkButton SettingsMenu.DummyMenu SettingsMenu.MainMenu  SettingsMenuMisc.DownloadConfig SettingsMenuMisc.OptionalDownloadConfig SettingsMenuMisc.AudioConfig SettingsMenuMisc.VideoSettingsConfig SettingsMenuMisc.ShowReadme SettingsMenuMisc.GyroscopeCalibration SettingsMenuMisc.StorageAccessConfig SettingsMenuMisc.CommandlineConfig SettingsMenuMisc.ResetToDefaultsConfig  SettingsMenuMouse.MouseConfigMainMenu SettingsMenuMouse.DisplaySizeConfig SettingsMenuMouse.LeftClickConfig SettingsMenuMouse.RightClickConfig SettingsMenuMouse.AdditionalMouseConfig SettingsMenuMouse.JoystickMouseConfig SettingsMenuMouse.TouchPressureMeasurementTool SettingsMenuMouse.CalibrateTouchscreenMenu  SettingsMenuKeyboard.KeyboardConfigMainMenu SettingsMenuKeyboard.ScreenKeyboardSizeConfig SettingsMenuKeyboard.ScreenKeyboardDrawSizeConfig SettingsMenuKeyboard.ScreenKeyboardThemeConfig SettingsMenuKeyboard.ScreenKeyboardTransparencyConfig SettingsMenuKeyboard.RemapHwKeysConfig SettingsMenuKeyboard.RemapScreenKbConfig SettingsMenuKeyboard.ScreenGesturesConfig SettingsMenuKeyboard.CustomizeScreenKbLayout SettingsMenuKeyboard.ScreenKeyboardAdvanced 
+ FirstStartMenuOptions=''
+ 
+ # Minimum amount of RAM application requires, in Mb, SDL will print warning to user if it's lower
+@@ -273,23 +275,25 @@ NDK_TOOLCHAIN_VERSION=clang
+ # Android platform version.
+ # android-16 = Android 4.1, the earliest supported version in NDK r18.
+ # android-18 = Android 4.3, the first version supporting GLES3.
+-# android-21 = Android 5.1, the first version with SO_REUSEPORT defined, also minimum version for Google Play Services since Aug. 2023 https://android-developers.googleblog.com/2023/07/google-play-services-discontinuing-updates-for-kitkat.html
+-# android-24 = Android 7.0, the first version with ifaddrs.h (needed for getifaddrs)
++# android-21 = Android 5.1, the first version with SO_REUSEPORT defined.
+ APP_PLATFORM=android-24
+ 
+ # Specify architectures to compile, 'all' or 'y' to compile for all architectures.
+ # Available architectures: armeabi-v7a arm64-v8a x86 x86_64
+-MultiABI='arm64-v8a armeabi-v7a x86 x86_64'
++MultiABI='arm64-v8a x86_64'
+ 
+ # Optional shared libraries to compile - removing some of them will save space
+ # MP3 patents are expired, but libmad license is GPL, not LGPL
+ # Available libraries: mad (GPL-ed!) sdl_mixer sdl_image sdl_ttf sdl_net sdl_blitpool sdl_gfx sdl_sound intl xml2 lua jpeg png ogg flac tremor vorbis freetype xerces curl theora fluidsynth lzma lzo2 mikmod openal timidity zzip bzip2 yaml-cpp python boost_date_time boost_filesystem boost_iostreams boost_program_options boost_regex boost_signals boost_system boost_thread glu avcodec avdevice avfilter avformat avresample avutil swscale swresample bzip2
+-# rep 'Available' project/jni/SettingsTemplate.mk
++# grep 'Available' project/jni/SettingsTemplate.mk
+ CompiledLibraries="c++_shared timidity expat fontconfig lzma lzo2 icui18n iculx icu-le-hb harfbuzz icudata icuuc crypto ssl curl"
+ 
+ # Application uses custom build script AndroidBuild.sh instead of Android.mk (y) or (n)
+ CustomBuildScript=y
+ 
++# Extract native libraries when installing .apk - required if you package executables or other binaries as shared libraries
++ExtractNativeLibs=
++
+ # Aditional CFLAGS for application
+ AppCflags=''
+ 
+diff --git a/project/jni/openssl/opensslconf.h.patch b/project/jni/openssl/opensslconf.h.patch
+index 7f84db0..3da343e 100644
+--- a/project/jni/openssl/opensslconf.h.patch
++++ b/project/jni/openssl/opensslconf.h.patch
+@@ -1,35 +1,43 @@
+ diff -u -r include-old/crypto/bn_conf.h include/crypto/bn_conf.h
+---- a/include/crypto/bn_conf.h	2025-04-22 17:58:33.706074060 +0300
+-+++ b/include/crypto/bn_conf.h	2025-04-22 18:03:53.976651334 +0300
+-@@ -21,8 +21,11 @@
++--- a/include/crypto/bn_conf.h
+++++ b/include/crypto/bn_conf.h
++@@ -21,8 +21,14 @@
+  /* Should we define BN_DIV2W here? */
+  
+  /* Only one for the following should be defined */
+--#undef SIXTY_FOUR_BIT_LONG
++-#define SIXTY_FOUR_BIT_LONG
+ -#undef SIXTY_FOUR_BIT
++-#undef THIRTY_TWO_BIT
+ +#ifdef __LP64__
+-+#define SIXTY_FOUR_BIT_LONG
+-+#define SIXTY_FOUR_BIT
+++# define SIXTY_FOUR_BIT_LONG
+++# undef SIXTY_FOUR_BIT
+++# undef THIRTY_TWO_BIT
+ +#else
+- #define THIRTY_TWO_BIT
+++# undef SIXTY_FOUR_BIT_LONG
+++# undef SIXTY_FOUR_BIT
+++# define THIRTY_TWO_BIT
+ +#endif
+  
+  #endif
+ diff -u -r include-old/openssl/opensslconf.h include/openssl/opensslconf.h
+---- a/include/openssl/opensslconf.h	2025-04-22 17:58:33.706074060 +0300
+-+++ b/include/openssl/opensslconf.h	2025-04-22 18:03:00.125562283 +0300
+-@@ -188,9 +188,12 @@
++--- a/include/openssl/opensslconf.h
+++++ b/include/openssl/opensslconf.h
++@@ -187,10 +187,16 @@
++  */
+  #if !defined(OPENSSL_SYS_UEFI)
+- # define BN_LLONG
++ # undef BN_LLONG
+  /* Only one for the following should be defined */
+--# undef SIXTY_FOUR_BIT_LONG
++-# define SIXTY_FOUR_BIT_LONG
+ -# undef SIXTY_FOUR_BIT
+--# define THIRTY_TWO_BIT
++-# undef THIRTY_TWO_BIT
+ +#ifdef __LP64__
+-+#define SIXTY_FOUR_BIT_LONG
+-+#define SIXTY_FOUR_BIT
+++# define SIXTY_FOUR_BIT_LONG
+++# undef SIXTY_FOUR_BIT
+++# undef THIRTY_TWO_BIT
+ +#else
+-+#define THIRTY_TWO_BIT
+++# undef SIXTY_FOUR_BIT_LONG
+++# undef SIXTY_FOUR_BIT
+++# define THIRTY_TWO_BIT
+ +#endif
+  #endif
+  
