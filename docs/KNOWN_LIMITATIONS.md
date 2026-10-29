@@ -1,9 +1,10 @@
 # Known limitations
 
 - Engine is OpenTTD 14.1, not OpenTTD 15.3 or 16. The Android port that builds is pelya's 14.1 tree.
-- Graphics, sounds, and music are the upstream base sets. Cities, industries, vehicles, and terrain were not redrawn. OpenGFX2 is not included.
-- There is no separate curated-map menu. New Game still uses OpenTTD's map generator, climates, and scenario editor.
-- The main menu is the OpenTTD intro window with the title changed to Industry Empire. It already has New Game, Load Game, Play Scenario, Scenario Editor, Multiplayer, Game Options, and Settings. There is no new Continue button and no new onboarding script.
+- Graphics, sounds, and music are the upstream base sets. Cities, industries, vehicles, and terrain were not redrawn. OpenGFX2 is not included. Terrain variety now defaults to High, which uses the existing OpenGFX sprites.
+- Quick Start and the town-count warning are in 1.1. They were not clicked on a device in this environment.
+- There is no separate curated-map menu. Quick Start generates a 256×256 map. World Generation, scenarios, and the scenario editor remain available.
+- The main menu is still the OpenTTD window layout. Quick Start, World Generation, and the First Route story script are the new first-run path.
 - Touch controls are the existing SDL Android port (tap, two-finger gestures, pinch via that port). They were not retested on a device in this environment.
 - No phone or emulator completed a game launch. KVM is present but the Android emulator guest stayed offline, so install, input, frame time, and memory were not measured. Do not treat the APK checksum as a play test.
 - The APK is debug-signed. Release signing is not set up.

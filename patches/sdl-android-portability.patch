@@ -33,7 +33,7 @@ index 64f5023..04d38fb 100644
  APP_CFLAGS := -g
  ifneq ($(NDK_DEBUG),1)
 diff --git a/project/jni/application/openttd/AndroidAppSettings.cfg b/project/jni/application/openttd/AndroidAppSettings.cfg
-index e04542f..7c2b396 100644
+index e04542f..82ac439 100644
 --- a/project/jni/application/openttd/AndroidAppSettings.cfg
 +++ b/project/jni/application/openttd/AndroidAppSettings.cfg
 @@ -1,16 +1,16 @@
@@ -48,14 +48,23 @@ index e04542f..7c2b396 100644
  
  # Application version code (integer)
 -AppVersionCode=1410128
-+AppVersionCode=1410129
++AppVersionCode=1410130
  
  # Application user-visible version name (string)
 -AppVersionName="14.1.rev128"
-+AppVersionName="1.0-ottd14.1"
++AppVersionName="1.1-ottd14.1"
  
  # Specify path to download application data in zip archive in the form "Description|URL|MirrorURL^Description2|URL2|MirrorURL2^...'
  # If you'll start Description with '!' symbol it will be enabled by default, '!!' will also hide the entry from the menu, so it cannot be disabled
+@@ -28,7 +28,7 @@ AppDataDownloadUrl="!!Data files|openttd-data-14.1-0.zip.xz^!!Config file|:.open
+ ResetSdlConfigForThisVersion=y
+ 
+ # Delete application data files when upgrading (specify file/dir paths separated by spaces)
+-DeleteFilesOnUpgrade="libsdl-DownloadFinished-0.flag ai/regression ai/stationlist"
++DeleteFilesOnUpgrade="libsdl-DownloadFinished-0.flag ai/regression ai/stationlist .openttd/openttd.cfg"
+ 
+ # Here you may type readme text, which will be shown during startup. Format is:
+ # Text in English, use \\\\n to separate lines (that's four backslashes)^de:Text in Deutsch^ru:Text in Russian^button:Button that will open some URL:http://url-to-open/
 @@ -135,6 +135,9 @@ ShowMouseCursor=n
  # Screen follows mouse cursor, when it's covered by soft keyboard, this works only in software video mode (y) or (n)
  ScreenFollowsMouse=
@@ -113,6 +122,188 @@ index e04542f..7c2b396 100644
  # Aditional CFLAGS for application
  AppCflags=''
  
+diff --git a/project/jni/application/openttd/AndroidData/openttd-1.4.0.30.cfg b/project/jni/application/openttd/AndroidData/openttd-1.4.0.30.cfg
+index 2f3f2d1..e475668 100644
+--- a/project/jni/application/openttd/AndroidData/openttd-1.4.0.30.cfg
++++ b/project/jni/application/openttd/AndroidData/openttd-1.4.0.30.cfg
+@@ -3,10 +3,23 @@ small_font = fonts/Roboto-Bold.ttf
+ medium_font = fonts/Roboto-Bold.ttf
+ large_font = fonts/DroidSerif-Bold.ttf
+ mono_font = fonts/DroidSansMono.ttf
+-small_size = 10
+-medium_size = 12
+-large_size = 16
+-mono_size = 12
++small_size = 12
++medium_size = 16
++large_size = 22
++mono_size = 14
++
++[game_creation]
++map_x = 8
++map_y = 8
++variety = 4
++amount_of_rivers = 2
++starting_year = 1950
++
++[difficulty]
++number_towns = 1
++industry_density = 4
++terrain_type = 2
++max_no_competitors = 0
+ small_aa = true
+ medium_aa = true
+ large_aa = true
+diff --git a/project/jni/application/openttd/industry-empire-tutorial/info.nut b/project/jni/application/openttd/industry-empire-tutorial/info.nut
+new file mode 100644
+index 0000000..b40df96
+--- /dev/null
++++ b/project/jni/application/openttd/industry-empire-tutorial/info.nut
+@@ -0,0 +1,14 @@
++class FirstRouteInfo extends GSInfo {
++	function GetAuthor()      { return "Industry Empire"; }
++	function GetName()        { return "First Route"; }
++	function GetShortName()   { return "IERT"; }
++	function GetDescription() { return "Guides a new company through one profitable bus route. Skip or replay from the story book."; }
++	function GetVersion()     { return 1; }
++	function MinVersionToLoad() { return 1; }
++	function GetDate()        { return "20261029"; }
++	function CreateInstance() { return "FirstRoute"; }
++	function GetAPIVersion()  { return "14"; }
++	function GetURL()         { return ""; }
++}
++
++RegisterGS(FirstRouteInfo());
+diff --git a/project/jni/application/openttd/industry-empire-tutorial/main.nut b/project/jni/application/openttd/industry-empire-tutorial/main.nut
+new file mode 100644
+index 0000000..b7927ac
+--- /dev/null
++++ b/project/jni/application/openttd/industry-empire-tutorial/main.nut
+@@ -0,0 +1,102 @@
++class FirstRoute extends GSController {
++	constructor() {
++		this.skipped = false;
++		this.done = false;
++		this.page = -1;
++		this.goal_bus = -1;
++		this.goal_profit = -1;
++		this.skip_button = -1;
++		this.replay_button = -1;
++	}
++}
++
++function FirstRoute::Start()
++{
++	this.Sleep(1);
++	this.BuildPages();
++	while (true) {
++		this.PollEvents();
++		if (!this.skipped && !this.done) this.CheckProgress();
++		this.Sleep(74);
++	}
++}
++
++function FirstRoute::BuildPages()
++{
++	this.page = GSStoryPage.New(GSCompany.COMPANY_INVALID, "Your first bus route");
++	GSStoryPage.NewElement(this.page, GSStoryPage.SPET_TEXT, 0,
++		"Industry Empire starts you next to a few towns. You do not need every toolbar button yet.");
++	GSStoryPage.NewElement(this.page, GSStoryPage.SPET_TEXT, 0,
++		"1. Open the road tool and drag a road between two nearby towns.");
++	GSStoryPage.NewElement(this.page, GSStoryPage.SPET_TEXT, 0,
++		"2. Place a bus stop in each town, touching that road. Place a bus depot on the road.");
++	GSStoryPage.NewElement(this.page, GSStoryPage.SPET_TEXT, 0,
++		"3. Open the depot, buy a bus, and give it orders for both stops. Start the bus.");
++	GSStoryPage.NewElement(this.page, GSStoryPage.SPET_TEXT, 0,
++		"4. Open Finances and wait until passenger income appears. That completes the tutorial.");
++	local skip_ref = GSStoryPage.MakePushButtonReference(GSStoryPage.SPBC_YELLOW, GSStoryPage.SPBF_NONE);
++	local replay_ref = GSStoryPage.MakePushButtonReference(GSStoryPage.SPBC_LIGHT_BLUE, GSStoryPage.SPBF_NONE);
++	this.skip_button = GSStoryPage.NewElement(this.page, GSStoryPage.SPET_BUTTON_PUSH, skip_ref, "Skip tutorial");
++	this.replay_button = GSStoryPage.NewElement(this.page, GSStoryPage.SPET_BUTTON_PUSH, replay_ref, "Replay tutorial");
++
++	this.goal_bus = GSGoal.New(GSCompany.COMPANY_FIRST, "Buy a bus and send it to two stops.", GSGoal.GT_STORY_PAGE, this.page);
++	this.goal_profit = GSGoal.New(GSCompany.COMPANY_FIRST, "Earn passenger income.", GSGoal.GT_STORY_PAGE, this.page);
++	this.skipped = false;
++	this.done = false;
++	this.ScrollToTown();
++}
++
++function FirstRoute::ScrollToTown()
++{
++	local towns = GSTownList();
++	if (towns.Count() == 0) return;
++	towns.Valuate(GSTown.GetPopulation);
++	towns.Sort(GSList.SORT_BY_VALUE, false);
++	local town = towns.Begin();
++	if (!GSTown.IsValidTown(town)) return;
++	GSViewport.ScrollTo(GSTown.GetLocation(town));
++}
++
++function FirstRoute::PollEvents()
++{
++	while (true) {
++		local event = GSEventController.GetNextEvent();
++		if (event == null) return;
++		if (event.GetEventType() != GSEvent.ET_STORYPAGE_BUTTON_CLICK) continue;
++		local click = GSEventStoryPageButtonClick.Convert(event);
++		if (click.GetElementID() == this.skip_button) {
++			this.skipped = true;
++			if (GSGoal.IsValidGoal(this.goal_bus)) GSGoal.Remove(this.goal_bus);
++			if (GSGoal.IsValidGoal(this.goal_profit)) GSGoal.Remove(this.goal_profit);
++			this.goal_bus = -1;
++			this.goal_profit = -1;
++		} else if (click.GetElementID() == this.replay_button) {
++			if (GSGoal.IsValidGoal(this.goal_bus)) GSGoal.Remove(this.goal_bus);
++			if (GSGoal.IsValidGoal(this.goal_profit)) GSGoal.Remove(this.goal_profit);
++			this.goal_bus = GSGoal.New(GSCompany.COMPANY_FIRST, "Buy a bus and send it to two stops.", GSGoal.GT_STORY_PAGE, this.page);
++			this.goal_profit = GSGoal.New(GSCompany.COMPANY_FIRST, "Earn passenger income.", GSGoal.GT_STORY_PAGE, this.page);
++			this.skipped = false;
++			this.done = false;
++			this.ScrollToTown();
++		}
++	}
++}
++
++function IsRoadVehicle(vehicle_id, vehicle_type)
++{
++	return GSVehicle.GetVehicleType(vehicle_id) == vehicle_type;
++}
++
++function FirstRoute::CheckProgress()
++{
++	if (!GSGoal.IsValidGoal(this.goal_bus)) return;
++	local buses = GSVehicleList(IsRoadVehicle, GSVehicle.VT_ROAD);
++	if (buses.Count() > 0 && !GSGoal.IsCompleted(this.goal_bus)) {
++		GSGoal.SetCompleted(this.goal_bus, true);
++	}
++	local income = GSCompany.GetQuarterlyIncome(GSCompany.COMPANY_FIRST, 0);
++	if (income > 0 && GSGoal.IsValidGoal(this.goal_profit) && !GSGoal.IsCompleted(this.goal_profit)) {
++		GSGoal.SetCompleted(this.goal_profit, true);
++		this.done = true;
++	}
++}
+diff --git a/project/jni/application/openttd/pack-data.sh b/project/jni/application/openttd/pack-data.sh
+index 0250b20..c3afa61 100755
+--- a/project/jni/application/openttd/pack-data.sh
++++ b/project/jni/application/openttd/pack-data.sh
+@@ -5,6 +5,7 @@ set -e
+ VER=14.1-0
+ ARCH=$1
+ ANDROID_DATA_FULLPATH=$(realpath ./AndroidData/)
++SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+ 
+ # Base game data
+ [ -e ${ANDROID_DATA_FULLPATH}/openttd-data-$VER.zip.xz ] && [ -n "$NO_REBUILD_DATA" ] || {
+@@ -17,6 +18,9 @@ ANDROID_DATA_FULLPATH=$(realpath ./AndroidData/)
+ 		cp -r ../../data-plat-indp/openmsx*/ .
+ 	popd
+ 
++	mkdir -p ./game/industry-empire-tutorial
++	cp -a "${SCRIPT_DIR}/industry-empire-tutorial/." ./game/industry-empire-tutorial/
++
+ 	zip -0 -r ${ANDROID_DATA_FULLPATH}/openttd-data-$VER.zip ./ && xz -8 ${ANDROID_DATA_FULLPATH}/openttd-data-$VER.zip
+ 	popd
+ }
 diff --git a/project/jni/openssl/opensslconf.h.patch b/project/jni/openssl/opensslconf.h.patch
 index 7f84db0..3da343e 100644
 --- a/project/jni/openssl/opensslconf.h.patch
