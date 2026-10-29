@@ -1,0 +1,28 @@
+diff --git a/src/3rdparty/fmt/core.h b/src/3rdparty/fmt/core.h
+index 7fe8550..9c97be2 100644
+--- a/src/3rdparty/fmt/core.h
++++ b/src/3rdparty/fmt/core.h
+@@ -221,6 +221,10 @@
+ #  define FMT_UNICODE !FMT_MSC_VERSION
+ #endif
+ 
++// Clang 17 and newer reject this fmt 9 consteval format-string path.
++#if defined(__clang__) && __clang_major__ >= 17
++#  define FMT_CONSTEVAL
++#endif
+ #ifndef FMT_CONSTEVAL
+ #  if ((FMT_GCC_VERSION >= 1000 || FMT_CLANG_VERSION >= 1101) && \
+        (!defined(__apple_build_version__) ||                     \
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 3554d5d..d09e302 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -2204,7 +2204,7 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... no c
+ STR_VIDEO_DRIVER_ERROR_HARDWARE_ACCELERATION_CRASH              :{WHITE}... GPU driver crashed the game. Hardware acceleration disabled
+ 
+ # Intro window
+-STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
++STR_INTRO_CAPTION                                               :{WHITE}Industry Empire
+ 
+ STR_INTRO_NEW_GAME                                              :{BLACK}New Game
+ STR_INTRO_LOAD_GAME                                             :{BLACK}Load Game

@@ -1,0 +1,8 @@
+source,licence,dimensions,purpose,dependency,status
+OpenGFX 7.1,GPL-2.0,OpenTTD base-set sprites,terrain vehicles buildings industries,OpenTTD 14.1 baseset,integrated in APK
+OpenSFX 1.0.3,CC BY-SA 3.0,sound effects,UI and world audio,OpenTTD 14.1 baseset,integrated unchanged
+OpenMSX 0.4.2,GPL-2.0,MIDI music via Timidity,background music,OpenTTD 14.1 baseset,integrated unchanged
+Industry Empire launcher icon,GPL-2.0,512x512 PNG,Android launcher icon,none,integrated
+OpenGFX2,GPL-2.0,high-resolution NewGRF,not audited,OpenTTD NewGRF,excluded
+curated map presets,n/a,scenario files,not generated,scenario editor,not included
+new city and industry sprite families,n/a,isometric sprites,not drawn,OpenGFX replacement,not included
