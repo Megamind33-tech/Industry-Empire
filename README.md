@@ -6,9 +6,11 @@ It is an independent release. It is not made or endorsed by the OpenTTD develope
 
 The playable build is a debug-signed release APK (arm64-v8a and x86_64) for Android 7.0 and newer. A Play Store upload key is not in this repository.
 
-## Play
+## Download
 
-Install `dist/IndustryEmpire-1.0-ottd14.1.apk` on an Android device. The package name is `org.openttd.sdl`. The launcher name is Industry Empire.
+[IndustryEmpire-1.0-ottd14.1.apk](https://github.com/Megamind33-tech/Industry-Empire/raw/cursor/industry-empire-android-781c/dist/IndustryEmpire-1.0-ottd14.1.apk) (83 MB)
+
+Install that file on an Android device. The package name is `org.openttd.sdl`. The launcher name is Industry Empire. Android may ask you to allow installs from your browser.
 
 The first launch downloads nothing else: graphics, sound, and music are inside the APK.
 
