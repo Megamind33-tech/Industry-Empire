@@ -7,6 +7,7 @@ Industry Empire uses the following works. Full licence texts ship inside the ups
 | OpenTTD 14.1 | GPL-2.0 | Copyright the OpenTTD team. https://www.openttd.org |
 | commandergenius Android SDL port | Mixed; SDL port portions allow commercial use with attribution, OpenTTD itself is GPL-2.0 | Copyright Sergii Pylypenko and port contributors. https://github.com/pelya/commandergenius |
 | OpenGFX 7.1 | GPL-2.0 | OpenGFX authors. https://github.com/OpenTTD/OpenGFX |
+| OpenGFX2 Classic 0.8.1 | GPL-2.0 | OpenGFX2 authors. https://github.com/OpenTTD/OpenGFX2 Classic is included. High Def is not. |
 | OpenMSX 0.4.2 | GPL-2.0 | OpenMSX authors |
 | OpenSFX 1.0.3 | CC BY-SA 3.0 | OpenSFX authors. Changes to the sound set must be shared under the same licence. |
 | SDL 1.2 and SDL2 | zlib | Copyright Sam Lantinga |

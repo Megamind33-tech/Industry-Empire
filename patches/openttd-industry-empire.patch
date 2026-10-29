@@ -13,11 +13,212 @@ index 7fe8550..9c97be2 100644
  #ifndef FMT_CONSTEVAL
  #  if ((FMT_GCC_VERSION >= 1000 || FMT_CLANG_VERSION >= 1101) && \
         (!defined(__apple_build_version__) ||                     \
+diff --git a/src/genworld.h b/src/genworld.h
+index e76eb15..54ab076 100644
+--- a/src/genworld.h
++++ b/src/genworld.h
+@@ -97,6 +97,7 @@ void IncreaseGeneratingWorldProgress(GenWorldProgress cls);
+ void PrepareGenerateWorldProgress();
+ void ShowGenerateWorldProgress();
+ void StartNewGameWithoutGUI(uint32_t seed);
++void StartIndustryEmpireQuickStart();
+ void ShowCreateScenario();
+ void StartScenarioEditor();
+ 
+diff --git a/src/genworld_gui.cpp b/src/genworld_gui.cpp
+index 00a3301..af86a17 100644
+--- a/src/genworld_gui.cpp
++++ b/src/genworld_gui.cpp
+@@ -32,8 +32,14 @@
+ #include "townname_type.h"
+ #include "video/video_driver.hpp"
+ #include "ai/ai_gui.hpp"
++#include "game/game.hpp"
++#include "game/game_config.hpp"
+ #include "game/game_gui.hpp"
+ #include "industry.h"
++#include "landscape_type.h"
++#include "zoom_func.h"
++#include "fileio_func.h"
++#include "openttd.h"
+ 
+ #include "widgets/genworld_widget.h"
+ 
+@@ -309,6 +315,65 @@ static constexpr NWidgetPart _nested_heightmap_load_widgets[] = {
+ 	EndContainer(),
+ };
+ 
++static void StartGeneratingLandscape(GenerateLandscapeWindowMode mode);
++
++/**
++ * Towns OpenTTD will try to place. "Normal" on a 256 map is a few dozen.
++ * The same setting on a 4096 map is about 6,144 towns.
++ */
++static uint EstimateInitialTowns()
++{
++	static const uint base_towns[4] = {5, 11, 23, 46};
++	uint difficulty = _settings_newgame.difficulty.number_towns;
++	if (difficulty == CUSTOM_TOWN_NUMBER_DIFFICULTY) return _settings_newgame.game_creation.custom_town_number;
++
++	/* Generation adds Random() & 7. Four is the middle of that range. */
++	uint base = base_towns[difficulty] + 4;
++	uint shift = _settings_newgame.game_creation.map_x + _settings_newgame.game_creation.map_y - 12;
++	return CeilDiv(base << shift, 16u);
++}
++
++static void ConfirmManyTownsCallback(Window *, bool confirmed)
++{
++	if (confirmed) StartGeneratingLandscape(GLWM_GENERATE);
++}
++
++void StartIndustryEmpireQuickStart()
++{
++	_settings_newgame.game_creation.landscape = LT_TEMPERATE;
++	_settings_newgame.game_creation.map_x = 8;
++	_settings_newgame.game_creation.map_y = 8;
++	_settings_newgame.difficulty.number_towns = 1;
++	_settings_newgame.difficulty.industry_density = ID_NORMAL;
++	_settings_newgame.difficulty.terrain_type = 2;
++	_settings_newgame.difficulty.max_no_competitors = 0;
++	_settings_newgame.difficulty.vehicle_breakdowns = 0;
++	/* High variety and medium rivers, not the maximum of either slider.
++	 * Hilly (not alpine) terrain, rough (not very rough) noise, and the
++	 * improved tree placer so forests clump instead of carpeting the map. */
++	_settings_newgame.game_creation.variety = 4;
++	_settings_newgame.game_creation.amount_of_rivers = 2;
++	_settings_newgame.game_creation.tree_placer = 2;
++	_settings_newgame.game_creation.tgen_smoothness = TGEN_SMOOTHNESS_ROUGH;
++	/* 0 = trees grow in place but do not spread across open ground. */
++	_settings_newgame.construction.extra_tree_placement = 0;
++	_settings_newgame.game_creation.starting_year = CalendarTime::DEF_START_YEAR;
++
++	Game::Rescan();
++	GameConfig::GetConfig(GameConfig::SSS_FORCE_NEWGAME)->Change("First Route");
++
++	std::string scenario = FioFindFullPath(SCENARIO_DIR, "Coastal Valley.scn");
++	if (!scenario.empty()) {
++		CloseAllNonVitalWindows();
++		ClearErrorMessages();
++		_file_to_saveload.name = std::move(scenario);
++		_file_to_saveload.SetMode(SLO_LOAD, FT_SCENARIO, DFT_GAME_FILE);
++		_switch_mode = SM_LOAD_GAME;
++		return;
++	}
++	StartNewGameWithoutGUI(GENERATE_NEW_SEED);
++}
++
+ static void StartGeneratingLandscape(GenerateLandscapeWindowMode mode)
+ {
+ 	CloseAllNonVitalWindows();
+@@ -432,7 +497,9 @@ struct GenerateLandscapeWindow : public Window {
+ 					SetDParam(0, STR_NUM_CUSTOM_NUMBER);
+ 					SetDParam(1, _settings_newgame.game_creation.custom_town_number);
+ 				} else {
+-					SetDParam(0, _num_towns[_settings_newgame.difficulty.number_towns]);
++					SetDParam(0, STR_IE_TOWN_WITH_COUNT);
++					SetDParam(1, _num_towns[_settings_newgame.difficulty.number_towns]);
++					SetDParam(2, EstimateInitialTowns());
+ 				}
+ 				break;
+ 
+@@ -738,6 +805,9 @@ struct GenerateLandscapeWindow : public Window {
+ 						STR_WARNING_HEIGHTMAP_SCALE_MESSAGE,
+ 						this,
+ 						LandscapeGenerationCallback);
++				} else if (mode == GLWM_GENERATE && EstimateInitialTowns() > 150) {
++					SetDParam(0, EstimateInitialTowns());
++					ShowQuery(STR_IE_MANY_TOWNS_CAPTION, STR_IE_MANY_TOWNS_MESSAGE, this, ConfirmManyTownsCallback);
+ 				} else {
+ 					StartGeneratingLandscape(mode);
+ 				}
+@@ -1351,7 +1421,7 @@ static constexpr NWidgetPart _nested_generate_progress_widgets[] = {
+ 		NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.modalpopup),
+ 			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_BAR), SetFill(1, 0),
+ 			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_TEXT), SetFill(1, 0),
+-			NWidget(WWT_TEXTBTN, COLOUR_WHITE, WID_GP_ABORT), SetDataTip(STR_GENERATION_ABORT, STR_NULL), SetFill(1, 0),
++			NWidget(WWT_TEXTBTN, COLOUR_WHITE, WID_GP_ABORT), SetMinimalTextLines(2, 0), SetDataTip(STR_GENERATION_ABORT, STR_NULL), SetFill(1, 0),
+ 		EndContainer(),
+ 	EndContainer(),
+ };
+@@ -1427,10 +1497,10 @@ struct GenerateProgressWindow : public Window {
+ 		switch (widget) {
+ 			case WID_GP_PROGRESS_BAR: {
+ 				SetDParamMaxValue(0, 100);
+-				*size = GetStringBoundingBox(STR_GENERATION_PROGRESS);
+-				/* We need some spacing for the 'border' */
++				*size = GetStringBoundingBox(STR_GENERATION_PROGRESS, FS_LARGE);
+ 				size->height += WidgetDimensions::scaled.frametext.Horizontal();
+-				size->width  += WidgetDimensions::scaled.frametext.Vertical();
++				size->width = std::max(size->width + WidgetDimensions::scaled.frametext.Vertical(), (uint)ScaleGUITrad(320));
++				size->height = std::max(size->height, GetCharacterHeight(FS_LARGE) + WidgetDimensions::scaled.frametext.Vertical());
+ 				break;
+ 			}
+ 
+@@ -1452,7 +1522,7 @@ struct GenerateProgressWindow : public Window {
+ 				Rect br = r.Shrink(WidgetDimensions::scaled.bevel);
+ 				DrawFrameRect(br.WithWidth(br.Width() * _gws.percent / 100, false), COLOUR_MAUVE, FR_NONE);
+ 				SetDParam(0, _gws.percent);
+-				DrawString(br.left, br.right, CenterBounds(br.top, br.bottom, GetCharacterHeight(FS_NORMAL)), STR_GENERATION_PROGRESS, TC_FROMSTRING, SA_HOR_CENTER);
++				DrawString(br.left, br.right, CenterBounds(br.top, br.bottom, GetCharacterHeight(FS_LARGE)), STR_GENERATION_PROGRESS, TC_FROMSTRING, SA_HOR_CENTER, false, FS_LARGE);
+ 				break;
+ 			}
+ 
+diff --git a/src/intro_gui.cpp b/src/intro_gui.cpp
+index 3c9fc98..4e0d8d7 100644
+--- a/src/intro_gui.cpp
++++ b/src/intro_gui.cpp
+@@ -337,11 +337,12 @@ struct SelectGameWindow : public Window {
+ 
+ 		switch (widget) {
+ 			case WID_SGI_GENERATE_GAME:
+-				if (_ctrl_pressed) {
+-					StartNewGameWithoutGUI(GENERATE_NEW_SEED);
+-				} else {
+-					ShowGenerateLandscape();
+-				}
++				StartIndustryEmpireQuickStart();
++				break;
++
++			case WID_SGI_ADVANCED_WORLD:
++				_is_network_server = false;
++				ShowGenerateLandscape();
+ 				break;
+ 
+ 			case WID_SGI_LOAD_GAME:      ShowSaveLoadDialog(FT_SAVEGAME, SLO_LOAD); break;
+@@ -395,23 +396,22 @@ static constexpr NWidgetPart _nested_select_game_widgets[] = {
+ 
+ 			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
+ 				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_sparse, 0),
+-					/* 'New Game' and 'Load Game' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetDataTip(STR_INTRO_NEW_GAME, STR_INTRO_TOOLTIP_NEW_GAME), SetFill(1, 0),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetDataTip(STR_INTRO_QUICK_START, STR_INTRO_TOOLTIP_QUICK_START), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_LOAD_GAME), SetDataTip(STR_INTRO_LOAD_GAME, STR_INTRO_TOOLTIP_LOAD_GAME), SetFill(1, 0),
+ 					EndContainer(),
+ 
+-					/* 'Play Scenario' and 'Play Heightmap' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_ADVANCED_WORLD), SetDataTip(STR_INTRO_WORLD_GENERATION, STR_INTRO_TOOLTIP_WORLD_GENERATION), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_SCENARIO), SetDataTip(STR_INTRO_PLAY_SCENARIO, STR_INTRO_TOOLTIP_PLAY_SCENARIO), SetFill(1, 0),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetDataTip(STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetFill(1, 0),
+ 					EndContainer(),
+ 
+-					/* 'Scenario Editor' and 'Multiplayer' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetDataTip(STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_EDIT_SCENARIO), SetDataTip(STR_INTRO_SCENARIO_EDITOR, STR_INTRO_TOOLTIP_SCENARIO_EDITOR), SetFill(1, 0),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetDataTip(STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetFill(1, 0),
+ 					EndContainer(),
++
++					NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetDataTip(STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetFill(1, 0),
+ 				EndContainer(),
+ 
+ 				NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_BASESET_SELECTION),
 diff --git a/src/lang/english.txt b/src/lang/english.txt
-index 3554d5d..d09e302 100644
+index 3554d5d..595790c 100644
 --- a/src/lang/english.txt
 +++ b/src/lang/english.txt
-@@ -2204,7 +2204,7 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... no c
+@@ -2204,9 +2204,11 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... no c
  STR_VIDEO_DRIVER_ERROR_HARDWARE_ACCELERATION_CRASH              :{WHITE}... GPU driver crashed the game. Hardware acceleration disabled
  
  # Intro window
@@ -25,4 +226,105 @@ index 3554d5d..d09e302 100644
 +STR_INTRO_CAPTION                                               :{WHITE}Industry Empire
  
  STR_INTRO_NEW_GAME                                              :{BLACK}New Game
++STR_INTRO_QUICK_START                                           :{BLACK}Quick Start
++STR_INTRO_WORLD_GENERATION                                      :{BLACK}World Generation
  STR_INTRO_LOAD_GAME                                             :{BLACK}Load Game
+ STR_INTRO_PLAY_SCENARIO                                         :{BLACK}Play Scenario
+ STR_INTRO_PLAY_HEIGHTMAP                                        :{BLACK}Play Heightmap
+@@ -2224,6 +2226,8 @@ STR_INTRO_GAMESCRIPT_SETTINGS                                   :{BLACK}Game Scr
+ STR_INTRO_QUIT                                                  :{BLACK}Exit
+ 
+ STR_INTRO_TOOLTIP_NEW_GAME                                      :{BLACK}Start a new game. Ctrl+Click skips map configuration
++STR_INTRO_TOOLTIP_QUICK_START                                   :{BLACK}Open the Coastal Valley scenario: hills, a river, forests, a sample bus route, and the tutorial. Play this again to replay it
++STR_INTRO_TOOLTIP_WORLD_GENERATION                              :{BLACK}Choose the map size, number of towns, climate, and other generation settings
+ STR_INTRO_TOOLTIP_LOAD_GAME                                     :{BLACK}Load a saved game
+ STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP                                :{BLACK}Start a new game, using a heightmap as landscape
+ STR_INTRO_TOOLTIP_PLAY_SCENARIO                                 :{BLACK}Start a new game, using a customised scenario
+@@ -3434,6 +3438,9 @@ STR_SE_MAPGEN_FLAT_WORLD_HEIGHT_UP                              :{BLACK}Move the
+ STR_SE_MAPGEN_FLAT_WORLD_HEIGHT_QUERY_CAPT                      :{WHITE}Change height of flat land
+ 
+ # Map generation progress
++STR_IE_TOWN_WITH_COUNT                                          :{STRING} (about {NUM} towns)
++STR_IE_MANY_TOWNS_CAPTION                                       :{WHITE}Many towns
++STR_IE_MANY_TOWNS_MESSAGE                                       :{YELLOW}This map will place about {NUM} towns. On a 4096 by 4096 map, Normal density is about 6,144 towns, and generating it is slow on a phone.{}{}Quick Start uses a 256 by 256 map and about 15 towns.{}{}Generate this large map anyway?
+ STR_GENERATION_WORLD                                            :{WHITE}Generating World...
+ STR_GENERATION_ABORT                                            :{BLACK}Abort
+ STR_GENERATION_ABORT_CAPTION                                    :{WHITE}Abort World Generation
+diff --git a/src/table/settings/difficulty_settings.ini b/src/table/settings/difficulty_settings.ini
+index 9503f99..a75a267 100644
+--- a/src/table/settings/difficulty_settings.ini
++++ b/src/table/settings/difficulty_settings.ini
+@@ -83,7 +83,7 @@ var      = difficulty.number_towns
+ type     = SLE_UINT8
+ from     = SLV_97
+ flags    = SF_NEWGAME_ONLY
+-def      = 2
++def      = 1
+ min      = 0
+ max      = 4
+ interval = 1
+diff --git a/src/table/settings/misc_settings.ini b/src/table/settings/misc_settings.ini
+index 7710fc9..cefacd8 100644
+--- a/src/table/settings/misc_settings.ini
++++ b/src/table/settings/misc_settings.ini
+@@ -206,7 +206,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""small_size""
+ type     = SLE_UINT
+ var      = _fcsettings.small.size
+-def      = 10
++def      = 12
+ min      = 0
+ max      = 72
+ 
+@@ -215,7 +215,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""medium_size""
+ type     = SLE_UINT
+ var      = _fcsettings.medium.size
+-def      = 12
++def      = 16
+ min      = 0
+ max      = 72
+ 
+@@ -224,7 +224,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""large_size""
+ type     = SLE_UINT
+ var      = _fcsettings.large.size
+-def      = 16
++def      = 22
+ min      = 0
+ max      = 72
+ 
+@@ -265,7 +265,7 @@ def      = true
+ name     = ""min_button_size""
+ type     = SLE_UINT
+ var      = _settings_client.gui.min_button
+-def      = 48
++def      = 56
+ min      = 0
+ max      = 100
+ cat      = SC_EXPERT
+diff --git a/src/table/settings/world_settings.ini b/src/table/settings/world_settings.ini
+index 68225db..1f51be7 100644
+--- a/src/table/settings/world_settings.ini
++++ b/src/table/settings/world_settings.ini
+@@ -188,7 +188,7 @@ var      = game_creation.variety
+ type     = SLE_UINT8
+ from     = SLV_197
+ flags    = SF_GUI_DROPDOWN | SF_NEWGAME_ONLY
+-def      = 0
++def      = 4
+ min      = 0
+ max      = 5
+ str      = STR_CONFIG_SETTING_VARIETY
+diff --git a/src/widgets/intro_widget.h b/src/widgets/intro_widget.h
+index d32d335..527c850 100644
+--- a/src/widgets/intro_widget.h
++++ b/src/widgets/intro_widget.h
+@@ -36,6 +36,7 @@ enum SelectGameIntroWidgets : WidgetID {
+ 	WID_SGI_GS_SETTINGS,           ///< Game Script button.
+ 	WID_SGI_TUTORIAL,              ///< Tutorial button.
+ 	WID_SGI_EXIT,                  ///< Exit button.
++	WID_SGI_ADVANCED_WORLD,        ///< Advanced world-generation button.
+ };
+ 
+ #endif /* WIDGETS_INTRO_WIDGET_H */
