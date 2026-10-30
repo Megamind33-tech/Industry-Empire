@@ -6,6 +6,6 @@ Industry Empire launcher icon,GPL-2.0,512x512 PNG,Android launcher icon,none,int
 OpenGFX2 Classic 0.8.1,GPL-2.0,8bpp normal-zoom baseset,default terrain vehicles buildings industries,OpenTTD 14.1 baseset,integrated in APK as the default graphics set
 OpenGFX2 High Def 0.8.1,GPL-2.0,32bpp extra-zoom baseset,not shipped,about 383 MB uncompressed,excluded because extra.grf is about 255 MB and GitHub rejects files over 100 MB
 Coastal Valley scenario,GPL-2.0,256x256 heightmap save,starter map with a sample bus route,Quick Start,integrated in APK
-First Route tutorial,GPL-2.0,game script text,bus-route onboarding,OpenTTD 14 game script API,integrated in APK
+First Route / First Contract tutorial,GPL-2.0,game script text,bus route and cargo contract onboarding,OpenTTD 14 game script API,integrated in APK; source in assets/game-scripts/industry-empire-tutorial
 OpenGFX2 station tram tree and object NewGRFs,GPL-2.0,optional NewGRFs,not stacked on Classic,see docs/GRAPHICS.md,audited and excluded
 new city and industry sprite families,n/a,isometric sprites,not drawn,OpenGFX2 Classic is the reused replacement,not drawn for this release
