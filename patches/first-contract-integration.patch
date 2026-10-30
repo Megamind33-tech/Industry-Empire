@@ -1,0 +1,91 @@
+diff --git a/src/genworld.h b/src/genworld.h
+index 54ab076..fdd2e14 100644
+--- a/src/genworld.h
++++ b/src/genworld.h
+@@ -98,6 +98,7 @@ void PrepareGenerateWorldProgress();
+ void ShowGenerateWorldProgress();
+ void StartNewGameWithoutGUI(uint32_t seed);
+ void StartIndustryEmpireQuickStart();
++void StartIndustryEmpireCareer();
+ void ShowCreateScenario();
+ void StartScenarioEditor();
+ 
+diff --git a/src/genworld_gui.cpp b/src/genworld_gui.cpp
+index af86a17..e9271ef 100644
+--- a/src/genworld_gui.cpp
++++ b/src/genworld_gui.cpp
+@@ -338,6 +338,25 @@ static void ConfirmManyTownsCallback(Window *, bool confirmed)
+ 	if (confirmed) StartGeneratingLandscape(GLWM_GENERATE);
+ }
+ 
++void StartIndustryEmpireCareer()
++{
++	_settings_newgame.game_creation.landscape = LT_TEMPERATE;
++	_settings_newgame.game_creation.map_x = 7;
++	_settings_newgame.game_creation.map_y = 7;
++	_settings_newgame.difficulty.number_towns = 1;
++	_settings_newgame.difficulty.industry_density = ID_HIGH;
++	_settings_newgame.difficulty.terrain_type = 0;
++	_settings_newgame.difficulty.quantity_sea_lakes = 0;
++	_settings_newgame.difficulty.max_no_competitors = 0;
++	_settings_newgame.difficulty.vehicle_breakdowns = 0;
++	_settings_newgame.game_creation.variety = 0;
++	_settings_newgame.game_creation.amount_of_rivers = 0;
++	_settings_newgame.game_creation.starting_year = 2000;
++	Game::Rescan();
++	GameConfig::GetConfig(GameConfig::SSS_FORCE_NEWGAME)->Change("First Contract");
++	StartNewGameWithoutGUI(GENERATE_NEW_SEED);
++}
++
+ void StartIndustryEmpireQuickStart()
+ {
+ 	_settings_newgame.game_creation.landscape = LT_TEMPERATE;
+diff --git a/src/intro_gui.cpp b/src/intro_gui.cpp
+index 4e0d8d7..18351f2 100644
+--- a/src/intro_gui.cpp
++++ b/src/intro_gui.cpp
+@@ -336,6 +336,11 @@ struct SelectGameWindow : public Window {
+ 		if (IsInsideMM(widget, WID_SGI_GENERATE_GAME, WID_SGI_EDIT_SCENARIO + 1)) _is_network_server = false;
+ 
+ 		switch (widget) {
++			case WID_SGI_CAREER:
++				_is_network_server = false;
++				StartIndustryEmpireCareer();
++				break;
++
+ 			case WID_SGI_GENERATE_GAME:
+ 				StartIndustryEmpireQuickStart();
+ 				break;
+@@ -396,6 +401,7 @@ static constexpr NWidgetPart _nested_select_game_widgets[] = {
+ 
+ 			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
+ 				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_sparse, 0),
++					NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_CAREER), SetDataTip(STR_INTRO_CAREER, STR_INTRO_TOOLTIP_CAREER), SetFill(1, 0),
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetDataTip(STR_INTRO_QUICK_START, STR_INTRO_TOOLTIP_QUICK_START), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_LOAD_GAME), SetDataTip(STR_INTRO_LOAD_GAME, STR_INTRO_TOOLTIP_LOAD_GAME), SetFill(1, 0),
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 595790c..998c752 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -2208,6 +2208,8 @@ STR_INTRO_CAPTION                                               :{WHITE}Industry
+ 
+ STR_INTRO_NEW_GAME                                              :{BLACK}New Game
+ STR_INTRO_QUICK_START                                           :{BLACK}Quick Start
++STR_INTRO_CAREER                                                :{BLACK}First Contract
++STR_INTRO_TOOLTIP_CAREER                                        :{BLACK}Start a small delivery business. Accept contracts, buy a truck, and manage expenses. Sandbox remains available through Quick Start and World Generation.
+ STR_INTRO_WORLD_GENERATION                                      :{BLACK}World Generation
+ STR_INTRO_LOAD_GAME                                             :{BLACK}Load Game
+ STR_INTRO_PLAY_SCENARIO                                         :{BLACK}Play Scenario
+diff --git a/src/widgets/intro_widget.h b/src/widgets/intro_widget.h
+index 527c850..c806f74 100644
+--- a/src/widgets/intro_widget.h
++++ b/src/widgets/intro_widget.h
+@@ -37,6 +37,7 @@ enum SelectGameIntroWidgets : WidgetID {
+ 	WID_SGI_TUTORIAL,              ///< Tutorial button.
+ 	WID_SGI_EXIT,                  ///< Exit button.
+ 	WID_SGI_ADVANCED_WORLD,        ///< Advanced world-generation button.
++	WID_SGI_CAREER,                ///< First Contract career.
+ };
+ 
+ #endif /* WIDGETS_INTRO_WIDGET_H */

@@ -1,0 +1,13 @@
+diff --git a/project/jni/application/openttd/pack-data.sh b/project/jni/application/openttd/pack-data.sh
+index b78655b..e1212a1 100755
+--- a/project/jni/application/openttd/pack-data.sh
++++ b/project/jni/application/openttd/pack-data.sh
+@@ -22,6 +22,8 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+ 
+ 	mkdir -p ./game/industry-empire-tutorial
+ 	cp -a "${SCRIPT_DIR}/industry-empire-tutorial/." ./game/industry-empire-tutorial/
++	mkdir -p ./game/industry-empire-career
++	cp -a "${SCRIPT_DIR}/industry-empire-career/." ./game/industry-empire-career/
+ 
+ 	# Prebuilt Coastal Valley scenario, when the Industry Empire repo is the parent of sdl-android.
+ 	ASSETS_DIR="${SCRIPT_DIR}/../../../../../assets"

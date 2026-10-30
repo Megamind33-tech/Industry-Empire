@@ -31,6 +31,12 @@ git -C project/jni/sdl2_mixer submodule update --init --depth 1 external/ogg
 git apply "$ROOT/patches/sdl-android-portability.patch"
 git apply --binary "$ROOT/patches/industry-empire-icon.patch"
 git -C project/jni/application/openttd/src apply "$ROOT/patches/openttd-industry-empire.patch"
+git -C project/jni/application/openttd/src apply "$ROOT/patches/first-contract-integration.patch"
+git apply "$ROOT/patches/first-contract-packaging.patch"
+
+# Keep career source tracked in the product repository, separate from upstream.
+mkdir -p project/jni/application/openttd/industry-empire-career
+cp -a "$ROOT/assets/game/industry-empire-career/." project/jni/application/openttd/industry-empire-career/
 
 ln -sfn openttd project/jni/application/src
 echo "Source tree ready at $DEST"
