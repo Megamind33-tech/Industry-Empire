@@ -1,0 +1,48 @@
+// Transport Empire vehicle set. Sprites are rendered by art/blender and packed by art/tools.
+#include "gfx/starter_car_sprites.pnml"
+
+grf {
+    grfid: "TE\01\01";
+    name: string(STR_GRF_NAME);
+    desc: string(STR_GRF_DESC);
+    version: 1;
+    min_compatible_version: 1;
+}
+
+cargotable { PASS }
+
+spriteset(set_starter_car, "gfx/starter_car_1x_8bpp.png") { tmpl_starter_car_1x() }
+alternative_sprites(set_starter_car, ZOOM_LEVEL_NORMAL, BIT_DEPTH_32BPP, "gfx/starter_car_1x.png", "gfx/starter_car_1x_mask.png") { tmpl_starter_car_1x() }
+alternative_sprites(set_starter_car, ZOOM_LEVEL_IN_2X, BIT_DEPTH_32BPP, "gfx/starter_car_2x.png", "gfx/starter_car_2x_mask.png") { tmpl_starter_car_2x() }
+alternative_sprites(set_starter_car, ZOOM_LEVEL_IN_4X, BIT_DEPTH_32BPP, "gfx/starter_car_4x.png", "gfx/starter_car_4x_mask.png") { tmpl_starter_car_4x() }
+
+// The player's first vehicle: a used family hatchback running a passenger taxi service.
+item(FEAT_ROADVEHS, te_starter_car) {
+    property {
+        name: string(STR_STARTER_CAR);
+        climates_available: ALL_CLIMATES;
+        introduction_date: date(1920, 1, 1);
+        model_life: VEHICLE_NEVER_EXPIRES;
+        vehicle_life: 12;
+        reliability_decay: 25;
+        refittable_cargo_classes: bitmask(CC_PASSENGERS);
+        non_refittable_cargo_classes: bitmask();
+        default_cargo_type: PASS;
+        cargo_capacity: 4;
+        loading_speed: 4;
+        cost_factor: 18;
+        running_cost_factor: 40;
+        running_cost_base: RUNNING_COST_ROADVEH;
+        speed: 110 km/h;
+        power: 75 hp;
+        weight: 1.1 ton;
+        tractive_effort_coefficient: 0.3;
+        length: 6;
+        sound_effect: SOUND_DEPARTURE_OLD_RV_1;
+        visual_effect: visual_effect(VISUAL_EFFECT_DISABLE, 0);
+    }
+    graphics {
+        default: set_starter_car;
+        purchase: set_starter_car;
+    }
+}

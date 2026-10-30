@@ -1,0 +1,4 @@
+##grflangid 0x01
+STR_GRF_NAME   :Transport Empire Vehicles
+STR_GRF_DESC   :Rendered vehicles for Transport Empire. Starts with the player's first car.
+STR_STARTER_CAR:Hatchback Taxi
