@@ -7,7 +7,7 @@ The engine stays OpenTTD 14.1 (Android). The game's look and identity are replac
 | 1. Identity | Rename to Transport Empire, remove OpenTTD branding from the UI, give the app a new package ID (`com.transportempire.game`), rename subsidies to contracts | Done (English strings only) |
 | 2. Economy | Start with 20,000 cash, 50,000 loan limit | Done |
 | 2b. Economy | Start with one free car, a government and business contract board, and a spending breakdown on the HUD | Planned |
-| 3. Art pipeline | Blender scenes rendered to 32bpp isometric sprites at every zoom level, packed as a NewGRF/base set | Planned |
+| 3. Art pipeline | Blender and Unreal (headless, offline) rendered to 32bpp isometric sprites, tiered by phone. See `docs/VISUAL_PIPELINE.md` | Planned |
 | 4. World life | Animated pedestrians, traffic, smoke, water, a day and night tint | Planned |
 | 5. UI and HUD | A new skin, a mobile-first toolbar, a money and contracts HUD | Planned |
 | 6. Modes | PvP lobby and PvAI presets built on the existing multiplayer and AI | Planned |
