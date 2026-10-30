@@ -602,7 +602,7 @@ index 0250b20..b78655b 100755
  
  # Base game data
  [ -e ${ANDROID_DATA_FULLPATH}/openttd-data-$VER.zip.xz ] && [ -n "$NO_REBUILD_DATA" ] || {
-@@ -13,10 +14,22 @@ ANDROID_DATA_FULLPATH=$(realpath ./AndroidData/)
+@@ -13,10 +14,27 @@ ANDROID_DATA_FULLPATH=$(realpath ./AndroidData/)
  
  	pushd ./baseset
  		cp ../../data-plat-indp/opengfx*.tar .
@@ -612,11 +612,16 @@ index 0250b20..b78655b 100755
  		cp -r ../../data-plat-indp/openmsx*/ .
  	popd
  
-+	mkdir -p ./game/industry-empire-tutorial
-+	cp -a "${SCRIPT_DIR}/industry-empire-tutorial/." ./game/industry-empire-tutorial/
++	ASSETS_DIR="${SCRIPT_DIR}/../../../../../assets"
++	if [ -d "${ASSETS_DIR}/game-scripts/industry-empire-tutorial" ]; then
++		mkdir -p ./game/industry-empire-tutorial
++		cp -a "${ASSETS_DIR}/game-scripts/industry-empire-tutorial/." ./game/industry-empire-tutorial/
++	else
++		mkdir -p ./game/industry-empire-tutorial
++		cp -a "${SCRIPT_DIR}/industry-empire-tutorial/." ./game/industry-empire-tutorial/
++	fi
 +
 +	# Prebuilt Coastal Valley scenario, when the Industry Empire repo is the parent of sdl-android.
-+	ASSETS_DIR="${SCRIPT_DIR}/../../../../../assets"
 +	if [ -d "${ASSETS_DIR}/scenarios" ]; then
 +		mkdir -p ./scenario
 +		cp -a "${ASSETS_DIR}/scenarios/." ./scenario/

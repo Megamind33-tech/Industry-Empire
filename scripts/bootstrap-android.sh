@@ -32,5 +32,12 @@ git apply "$ROOT/patches/sdl-android-portability.patch"
 git apply --binary "$ROOT/patches/industry-empire-icon.patch"
 git -C project/jni/application/openttd/src apply "$ROOT/patches/openttd-industry-empire.patch"
 
+TUTORIAL_SRC="$ROOT/assets/game-scripts/industry-empire-tutorial"
+TUTORIAL_DEST="$DEST/project/jni/application/openttd/industry-empire-tutorial"
+if [ -d "$TUTORIAL_SRC" ]; then
+  mkdir -p "$TUTORIAL_DEST"
+  cp -a "$TUTORIAL_SRC/." "$TUTORIAL_DEST/"
+fi
+
 ln -sfn openttd project/jni/application/src
 echo "Source tree ready at $DEST"

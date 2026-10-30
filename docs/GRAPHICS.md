@@ -8,7 +8,7 @@ OpenGFX2 Classic 0.8.1 is the default base graphics set. OpenGFX 7.1 stays in th
 
 Classic is a complete 8bpp redraw at the normal zoom this engine actually displays. Its `opengfx2_8.obg` says `blitter = 8bpp` and `palette = DOS`. On this 14.1 port the default viewport is `ZOOM_LVL_OUT_4X`, and a GRF zoom byte of 0 is that view. Classic's sprites are zoom byte 0, so they are the sprites the game draws. A side-by-side of one saved map, Chenfingfield on 25 February 1950, same camera, changed about 86 percent of the playfield pixels. Mean absolute difference was about 34, 31, and 31 per channel.
 
-Quick Start loads `scenario/Coastal Valley.scn` when that file is present. The scenario is a 256×256 temperate heightmap: a western coast, a river inlet, two hill masses, forests, fields, and towns. A sample bus route, with two stops, a depot, and one bus, runs between Brindhattan Springs and Chenfingfield. The First Route story then asks for a second bus. If the scenario file is missing, Quick Start still generates a 256×256 map.
+Quick Start loads `scenario/Coastal Valley.scn` when that file is present. The scenario is a 256×256 temperate heightmap: a western coast, a river inlet, two hill masses, forests, fields, and towns. A sample bus route, with two stops, a depot, and one bus, runs between Brindhattan Springs and Chenfingfield. The First Route chapter asks for a second bus; the First Contract chapter then guides a truck delivery from a nearby industry. If the scenario file is missing, Quick Start still generates a 256×256 map.
 
 World generation was not turned up to the maximum of every slider:
 
