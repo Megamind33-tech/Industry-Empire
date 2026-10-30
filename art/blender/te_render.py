@@ -32,6 +32,11 @@ def reset_scene():
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
+    # Sprites are ~100 px wide: cap texture size and subdivision so 4K-textured,
+    # million-polygon store models render in seconds and fit in memory.
+    scene.render.use_simplify = True
+    scene.render.simplify_subdivision_render = 1
+    scene.cycles.texture_limit_render = "256"
     scene.render.use_persistent_data = True  # keep BVH and textures between the 8 direction renders
     scene.cycles.samples = 96
     scene.cycles.use_denoising = True
@@ -123,7 +128,7 @@ def render_directions(scene, root, out_dir, prefix):
 CATEGORY_LENGTH = {"road_vehicle": 0.42, "train_engine": 0.9, "train_wagon": 0.9, "ship": 0.9, "aircraft": 0.8}
 
 
-def import_model(path, category, yaw_deg, paint_re):
+def import_model(path, category, yaw_deg, paint_re, length=None):
     """Import a downloaded .glb/.gltf/.fbx/.obj/.blend, scale it to game size and mark company paint."""
     import re
     before = set(bpy.data.objects)
@@ -135,33 +140,35 @@ def import_model(path, category, yaw_deg, paint_re):
     elif ext == ".obj":
         bpy.ops.wm.obj_import(filepath=path)
     elif ext == ".blend":
+        # Append collections, not loose objects: unlinked helper meshes stay out.
         with bpy.data.libraries.load(path) as (src, dst):
-            dst.objects = src.objects
-        for o in dst.objects:
-            bpy.context.scene.collection.objects.link(o)
-    meshes = [o for o in set(bpy.data.objects) - before if o.type == "MESH"]
-    root = bpy.data.objects.new("Imported", None)
-    bpy.context.scene.collection.objects.link(root)
-    for o in meshes:
-        mw = o.matrix_world.copy()
-        o.parent = root
-        o.matrix_world = mw
+            dst.collections = src.collections
+        nested = {c for col in dst.collections for c in col.children}
+        for col in dst.collections:
+            if col not in nested:
+                bpy.context.scene.collection.children.link(col)
+    meshes = [o for o in set(bpy.data.objects) - before
+              if o.type == "MESH" and not o.hide_render and o.users_scene]
     bpy.context.view_layer.update()
     from mathutils import Vector
     pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
-    length = max(hi.x - lo.x, hi.y - lo.y)
-    scale = CATEGORY_LENGTH.get(category, 0.5) / length
-    centre = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
-    for o in meshes:
-        o.location = (o.location - centre)
-    bpy.context.view_layer.update()
+    scale = (length or CATEGORY_LENGTH.get(category, 0.5)) / max(hi.x - lo.x, hi.y - lo.y)
+    # Keep the model's own hierarchy (rigs, mirror modifiers, wheel empties):
+    # only its top-level objects go under our pivot.
+    new = set(bpy.data.objects) - before
+    root = bpy.data.objects.new("Imported", None)
     pivot = bpy.data.objects.new("Model", None)
-    bpy.context.scene.collection.objects.link(pivot)
+    for o in (root, pivot):
+        bpy.context.scene.collection.objects.link(o)
+    for o in new:
+        if o.parent not in new:
+            o.parent = root
+    root.location = -Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     root.parent = pivot
-    root.scale = (scale,) * 3
-    root.rotation_euler = (0, 0, math.radians(yaw_deg))
+    pivot.scale = (scale,) * 3
+    pivot.rotation_euler = (0, 0, math.radians(yaw_deg))
     rx = re.compile(paint_re, re.I)
     for o in meshes:
         for slot in o.material_slots:
@@ -175,6 +182,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="procedural module name, or a path to a model file")
     ap.add_argument("--category", default="road_vehicle")
+    ap.add_argument("--length", type=float, help="model length in tiles, overriding the category default")
     ap.add_argument("--yaw", type=float, default=0, help="degrees to turn an imported model so its front faces +X")
     ap.add_argument("--paint", default="paint|body|carpaint|livery", help="regex for company-colour materials")
     ap.add_argument("--out", required=True)
@@ -187,7 +195,11 @@ def main():
     add_camera(scene)
     add_lighting(scene)
     if os.path.exists(args.model):
-        root = import_model(os.path.abspath(args.model), args.category, args.yaw, args.paint)
+        pivot = import_model(os.path.abspath(args.model), args.category, args.yaw, args.paint, args.length)
+        # Directions spin an outer empty so the model's own yaw correction is kept.
+        root = bpy.data.objects.new("Spin", None)
+        bpy.context.scene.collection.objects.link(root)
+        pivot.parent = root
     else:
         root = importlib.import_module(args.model).build()
     render_directions(scene, root, args.out, "rgba")

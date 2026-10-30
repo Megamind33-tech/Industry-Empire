@@ -1,2 +1,4 @@
 build/
 grf/.nmlcache/
+# Store-licensed source models are never committed; only their renders ship.
+models/*/

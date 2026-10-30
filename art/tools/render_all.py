@@ -3,7 +3,7 @@
 usage: python3 -I art/tools/render_all.py [--jobs N] [--draft] [--only CATEGORY] [--force]
 
 The "model" column is a procedural module name (art/blender/models/<name>.py) or a path
-under art/ to a downloaded model, optionally followed by ";yaw=90;paint=regex".
+under art/ to a downloaded model, optionally followed by ";yaw=90;length=0.5;paint=regex".
 A render is skipped when a hash of the model file, the renderer and its options
 matches the stamp left by the last render.
 """
@@ -48,6 +48,8 @@ def render(row, samples, threads, force):
            "--samples", str(samples), "--category", row["category"]]
     if "yaw" in opts:
         cmd += ["--yaw", opts["yaw"]]
+    if "length" in opts:
+        cmd += ["--length", opts["length"]]
     if "paint" in opts:
         cmd += ["--paint", opts["paint"]]
     log = subprocess.run(cmd, capture_output=True, text=True)

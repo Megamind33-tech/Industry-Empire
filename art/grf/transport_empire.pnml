@@ -1,5 +1,6 @@
 // Transport Empire vehicle set. Sprites are rendered by art/blender and packed by art/tools.
 #include "gfx/starter_car_sprites.pnml"
+#include "gfx/jotun_pickup_sprites.pnml"
 
 grf {
     grfid: "TE\01\01";
@@ -9,7 +10,7 @@ grf {
     min_compatible_version: 1;
 }
 
-cargotable { PASS }
+cargotable { PASS, MAIL, GOOD }
 
 spriteset(set_starter_car, "gfx/starter_car_1x_8bpp.png") { tmpl_starter_car_1x() }
 alternative_sprites(set_starter_car, ZOOM_LEVEL_NORMAL, BIT_DEPTH_32BPP, "gfx/starter_car_1x.png", "gfx/starter_car_1x_mask.png") { tmpl_starter_car_1x() }
@@ -44,5 +45,41 @@ item(FEAT_ROADVEHS, te_starter_car) {
     graphics {
         default: set_starter_car;
         purchase: set_starter_car;
+    }
+}
+
+spriteset(set_pickup, "gfx/jotun_pickup_1x_8bpp.png") { tmpl_jotun_pickup_1x() }
+alternative_sprites(set_pickup, ZOOM_LEVEL_NORMAL, BIT_DEPTH_32BPP, "gfx/jotun_pickup_1x.png", "gfx/jotun_pickup_1x_mask.png") { tmpl_jotun_pickup_1x() }
+alternative_sprites(set_pickup, ZOOM_LEVEL_IN_2X, BIT_DEPTH_32BPP, "gfx/jotun_pickup_2x.png", "gfx/jotun_pickup_2x_mask.png") { tmpl_jotun_pickup_2x() }
+alternative_sprites(set_pickup, ZOOM_LEVEL_IN_4X, BIT_DEPTH_32BPP, "gfx/jotun_pickup_4x.png", "gfx/jotun_pickup_4x_mask.png") { tmpl_jotun_pickup_4x() }
+
+// The founder's work truck: small courier and goods jobs before the first bus.
+item(FEAT_ROADVEHS, te_pickup) {
+    property {
+        name: string(STR_PICKUP);
+        climates_available: ALL_CLIMATES;
+        introduction_date: date(1920, 1, 1);
+        model_life: VEHICLE_NEVER_EXPIRES;
+        vehicle_life: 15;
+        reliability_decay: 20;
+        refittable_cargo_classes: bitmask(CC_MAIL, CC_ARMOURED, CC_EXPRESS);
+        non_refittable_cargo_classes: bitmask();
+        default_cargo_type: GOOD;
+        cargo_capacity: 3;
+        loading_speed: 3;
+        cost_factor: 26;
+        running_cost_factor: 55;
+        running_cost_base: RUNNING_COST_ROADVEH;
+        speed: 120 km/h;
+        power: 180 hp;
+        weight: 2.1 ton;
+        tractive_effort_coefficient: 0.3;
+        length: 7;
+        sound_effect: SOUND_DEPARTURE_OLD_RV_1;
+        visual_effect: visual_effect(VISUAL_EFFECT_DISABLE, 0);
+    }
+    graphics {
+        default: set_pickup;
+        purchase: set_pickup;
     }
 }

@@ -380,3 +380,4 @@ gui,fonts,fonts,1,1,font,P1,,todo,"small, medium, large, mono"
 gui,logo_title,logo title,1,1,art,P1,,todo,"title logo, loading screen, menu background"
 audio,sound_effects,sound effects,0,0,audio,P3,,todo,73 effects
 audio,music,music,0,0,audio,P3,,todo,title and in-game playlist
+road_vehicle,jotun_pickup,Pickup Truck,8,1,vehicle,P0,models/jotun_pickup/model.blend;yaw=90;length=0.5;paint=^Car Paint,test,BlenderKit royalty-free test
