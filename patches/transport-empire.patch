@@ -1,0 +1,706 @@
+diff --git a/src/3rdparty/fmt/core.h b/src/3rdparty/fmt/core.h
+index 7fe8550..9c97be2 100644
+--- a/src/3rdparty/fmt/core.h
++++ b/src/3rdparty/fmt/core.h
+@@ -221,6 +221,10 @@
+ #  define FMT_UNICODE !FMT_MSC_VERSION
+ #endif
+ 
++// Clang 17 and newer reject this fmt 9 consteval format-string path.
++#if defined(__clang__) && __clang_major__ >= 17
++#  define FMT_CONSTEVAL
++#endif
+ #ifndef FMT_CONSTEVAL
+ #  if ((FMT_GCC_VERSION >= 1000 || FMT_CLANG_VERSION >= 1101) && \
+        (!defined(__apple_build_version__) ||                     \
+diff --git a/src/economy_type.h b/src/economy_type.h
+index 26474b7..3a4ae1f 100644
+--- a/src/economy_type.h
++++ b/src/economy_type.h
+@@ -214,7 +214,7 @@ struct PriceBaseSpec {
+ /** The "steps" in loan size, in British Pounds! */
+ static const int LOAN_INTERVAL = 10000;
+ /** The size of loan for a new company, in British Pounds! */
+-static const int64_t INITIAL_LOAN = 100000;
++static const int64_t INITIAL_LOAN = 20000; ///< Transport Empire: start small, earn the rest.
+ /** The max amount possible to configure for a max loan of a company. */
+ static const int64_t MAX_LOAN_LIMIT = 2000000000;
+ 
+diff --git a/src/genworld.h b/src/genworld.h
+index e76eb15..54ab076 100644
+--- a/src/genworld.h
++++ b/src/genworld.h
+@@ -97,6 +97,7 @@ void IncreaseGeneratingWorldProgress(GenWorldProgress cls);
+ void PrepareGenerateWorldProgress();
+ void ShowGenerateWorldProgress();
+ void StartNewGameWithoutGUI(uint32_t seed);
++void StartIndustryEmpireQuickStart();
+ void ShowCreateScenario();
+ void StartScenarioEditor();
+ 
+diff --git a/src/genworld_gui.cpp b/src/genworld_gui.cpp
+index 00a3301..af86a17 100644
+--- a/src/genworld_gui.cpp
++++ b/src/genworld_gui.cpp
+@@ -32,8 +32,14 @@
+ #include "townname_type.h"
+ #include "video/video_driver.hpp"
+ #include "ai/ai_gui.hpp"
++#include "game/game.hpp"
++#include "game/game_config.hpp"
+ #include "game/game_gui.hpp"
+ #include "industry.h"
++#include "landscape_type.h"
++#include "zoom_func.h"
++#include "fileio_func.h"
++#include "openttd.h"
+ 
+ #include "widgets/genworld_widget.h"
+ 
+@@ -309,6 +315,65 @@ static constexpr NWidgetPart _nested_heightmap_load_widgets[] = {
+ 	EndContainer(),
+ };
+ 
++static void StartGeneratingLandscape(GenerateLandscapeWindowMode mode);
++
++/**
++ * Towns OpenTTD will try to place. "Normal" on a 256 map is a few dozen.
++ * The same setting on a 4096 map is about 6,144 towns.
++ */
++static uint EstimateInitialTowns()
++{
++	static const uint base_towns[4] = {5, 11, 23, 46};
++	uint difficulty = _settings_newgame.difficulty.number_towns;
++	if (difficulty == CUSTOM_TOWN_NUMBER_DIFFICULTY) return _settings_newgame.game_creation.custom_town_number;
++
++	/* Generation adds Random() & 7. Four is the middle of that range. */
++	uint base = base_towns[difficulty] + 4;
++	uint shift = _settings_newgame.game_creation.map_x + _settings_newgame.game_creation.map_y - 12;
++	return CeilDiv(base << shift, 16u);
++}
++
++static void ConfirmManyTownsCallback(Window *, bool confirmed)
++{
++	if (confirmed) StartGeneratingLandscape(GLWM_GENERATE);
++}
++
++void StartIndustryEmpireQuickStart()
++{
++	_settings_newgame.game_creation.landscape = LT_TEMPERATE;
++	_settings_newgame.game_creation.map_x = 8;
++	_settings_newgame.game_creation.map_y = 8;
++	_settings_newgame.difficulty.number_towns = 1;
++	_settings_newgame.difficulty.industry_density = ID_NORMAL;
++	_settings_newgame.difficulty.terrain_type = 2;
++	_settings_newgame.difficulty.max_no_competitors = 0;
++	_settings_newgame.difficulty.vehicle_breakdowns = 0;
++	/* High variety and medium rivers, not the maximum of either slider.
++	 * Hilly (not alpine) terrain, rough (not very rough) noise, and the
++	 * improved tree placer so forests clump instead of carpeting the map. */
++	_settings_newgame.game_creation.variety = 4;
++	_settings_newgame.game_creation.amount_of_rivers = 2;
++	_settings_newgame.game_creation.tree_placer = 2;
++	_settings_newgame.game_creation.tgen_smoothness = TGEN_SMOOTHNESS_ROUGH;
++	/* 0 = trees grow in place but do not spread across open ground. */
++	_settings_newgame.construction.extra_tree_placement = 0;
++	_settings_newgame.game_creation.starting_year = CalendarTime::DEF_START_YEAR;
++
++	Game::Rescan();
++	GameConfig::GetConfig(GameConfig::SSS_FORCE_NEWGAME)->Change("First Route");
++
++	std::string scenario = FioFindFullPath(SCENARIO_DIR, "Coastal Valley.scn");
++	if (!scenario.empty()) {
++		CloseAllNonVitalWindows();
++		ClearErrorMessages();
++		_file_to_saveload.name = std::move(scenario);
++		_file_to_saveload.SetMode(SLO_LOAD, FT_SCENARIO, DFT_GAME_FILE);
++		_switch_mode = SM_LOAD_GAME;
++		return;
++	}
++	StartNewGameWithoutGUI(GENERATE_NEW_SEED);
++}
++
+ static void StartGeneratingLandscape(GenerateLandscapeWindowMode mode)
+ {
+ 	CloseAllNonVitalWindows();
+@@ -432,7 +497,9 @@ struct GenerateLandscapeWindow : public Window {
+ 					SetDParam(0, STR_NUM_CUSTOM_NUMBER);
+ 					SetDParam(1, _settings_newgame.game_creation.custom_town_number);
+ 				} else {
+-					SetDParam(0, _num_towns[_settings_newgame.difficulty.number_towns]);
++					SetDParam(0, STR_IE_TOWN_WITH_COUNT);
++					SetDParam(1, _num_towns[_settings_newgame.difficulty.number_towns]);
++					SetDParam(2, EstimateInitialTowns());
+ 				}
+ 				break;
+ 
+@@ -738,6 +805,9 @@ struct GenerateLandscapeWindow : public Window {
+ 						STR_WARNING_HEIGHTMAP_SCALE_MESSAGE,
+ 						this,
+ 						LandscapeGenerationCallback);
++				} else if (mode == GLWM_GENERATE && EstimateInitialTowns() > 150) {
++					SetDParam(0, EstimateInitialTowns());
++					ShowQuery(STR_IE_MANY_TOWNS_CAPTION, STR_IE_MANY_TOWNS_MESSAGE, this, ConfirmManyTownsCallback);
+ 				} else {
+ 					StartGeneratingLandscape(mode);
+ 				}
+@@ -1351,7 +1421,7 @@ static constexpr NWidgetPart _nested_generate_progress_widgets[] = {
+ 		NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.modalpopup),
+ 			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_BAR), SetFill(1, 0),
+ 			NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GP_PROGRESS_TEXT), SetFill(1, 0),
+-			NWidget(WWT_TEXTBTN, COLOUR_WHITE, WID_GP_ABORT), SetDataTip(STR_GENERATION_ABORT, STR_NULL), SetFill(1, 0),
++			NWidget(WWT_TEXTBTN, COLOUR_WHITE, WID_GP_ABORT), SetMinimalTextLines(2, 0), SetDataTip(STR_GENERATION_ABORT, STR_NULL), SetFill(1, 0),
+ 		EndContainer(),
+ 	EndContainer(),
+ };
+@@ -1427,10 +1497,10 @@ struct GenerateProgressWindow : public Window {
+ 		switch (widget) {
+ 			case WID_GP_PROGRESS_BAR: {
+ 				SetDParamMaxValue(0, 100);
+-				*size = GetStringBoundingBox(STR_GENERATION_PROGRESS);
+-				/* We need some spacing for the 'border' */
++				*size = GetStringBoundingBox(STR_GENERATION_PROGRESS, FS_LARGE);
+ 				size->height += WidgetDimensions::scaled.frametext.Horizontal();
+-				size->width  += WidgetDimensions::scaled.frametext.Vertical();
++				size->width = std::max(size->width + WidgetDimensions::scaled.frametext.Vertical(), (uint)ScaleGUITrad(320));
++				size->height = std::max(size->height, GetCharacterHeight(FS_LARGE) + WidgetDimensions::scaled.frametext.Vertical());
+ 				break;
+ 			}
+ 
+@@ -1452,7 +1522,7 @@ struct GenerateProgressWindow : public Window {
+ 				Rect br = r.Shrink(WidgetDimensions::scaled.bevel);
+ 				DrawFrameRect(br.WithWidth(br.Width() * _gws.percent / 100, false), COLOUR_MAUVE, FR_NONE);
+ 				SetDParam(0, _gws.percent);
+-				DrawString(br.left, br.right, CenterBounds(br.top, br.bottom, GetCharacterHeight(FS_NORMAL)), STR_GENERATION_PROGRESS, TC_FROMSTRING, SA_HOR_CENTER);
++				DrawString(br.left, br.right, CenterBounds(br.top, br.bottom, GetCharacterHeight(FS_LARGE)), STR_GENERATION_PROGRESS, TC_FROMSTRING, SA_HOR_CENTER, false, FS_LARGE);
+ 				break;
+ 			}
+ 
+diff --git a/src/intro_gui.cpp b/src/intro_gui.cpp
+index 3c9fc98..4e0d8d7 100644
+--- a/src/intro_gui.cpp
++++ b/src/intro_gui.cpp
+@@ -337,11 +337,12 @@ struct SelectGameWindow : public Window {
+ 
+ 		switch (widget) {
+ 			case WID_SGI_GENERATE_GAME:
+-				if (_ctrl_pressed) {
+-					StartNewGameWithoutGUI(GENERATE_NEW_SEED);
+-				} else {
+-					ShowGenerateLandscape();
+-				}
++				StartIndustryEmpireQuickStart();
++				break;
++
++			case WID_SGI_ADVANCED_WORLD:
++				_is_network_server = false;
++				ShowGenerateLandscape();
+ 				break;
+ 
+ 			case WID_SGI_LOAD_GAME:      ShowSaveLoadDialog(FT_SAVEGAME, SLO_LOAD); break;
+@@ -395,23 +396,22 @@ static constexpr NWidgetPart _nested_select_game_widgets[] = {
+ 
+ 			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
+ 				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_sparse, 0),
+-					/* 'New Game' and 'Load Game' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetDataTip(STR_INTRO_NEW_GAME, STR_INTRO_TOOLTIP_NEW_GAME), SetFill(1, 0),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetDataTip(STR_INTRO_QUICK_START, STR_INTRO_TOOLTIP_QUICK_START), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_LOAD_GAME), SetDataTip(STR_INTRO_LOAD_GAME, STR_INTRO_TOOLTIP_LOAD_GAME), SetFill(1, 0),
+ 					EndContainer(),
+ 
+-					/* 'Play Scenario' and 'Play Heightmap' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_ADVANCED_WORLD), SetDataTip(STR_INTRO_WORLD_GENERATION, STR_INTRO_TOOLTIP_WORLD_GENERATION), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_SCENARIO), SetDataTip(STR_INTRO_PLAY_SCENARIO, STR_INTRO_TOOLTIP_PLAY_SCENARIO), SetFill(1, 0),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetDataTip(STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetFill(1, 0),
+ 					EndContainer(),
+ 
+-					/* 'Scenario Editor' and 'Multiplayer' buttons */
+ 					NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
++						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetDataTip(STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetFill(1, 0),
+ 						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_EDIT_SCENARIO), SetDataTip(STR_INTRO_SCENARIO_EDITOR, STR_INTRO_TOOLTIP_SCENARIO_EDITOR), SetFill(1, 0),
+-						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetDataTip(STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetFill(1, 0),
+ 					EndContainer(),
++
++					NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetDataTip(STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetFill(1, 0),
+ 				EndContainer(),
+ 
+ 				NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_BASESET_SELECTION),
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 3554d5d..587a8d0 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -385,7 +385,7 @@ STR_TOOLBAR_TOOLTIP_OPTIONS                                     :{BLACK}Options
+ STR_TOOLBAR_TOOLTIP_SAVE_GAME_ABANDON_GAME                      :{BLACK}Save, load or abandon game, exit program
+ STR_TOOLBAR_TOOLTIP_DISPLAY_MAP                                 :{BLACK}Open map, extra viewport, cargo flow or list of signs
+ STR_TOOLBAR_TOOLTIP_DISPLAY_TOWN_DIRECTORY                      :{BLACK}Open town directory or found town
+-STR_TOOLBAR_TOOLTIP_DISPLAY_SUBSIDIES                           :{BLACK}Open subsidy list
++STR_TOOLBAR_TOOLTIP_DISPLAY_SUBSIDIES                           :{BLACK}Open contract list
+ STR_TOOLBAR_TOOLTIP_DISPLAY_LIST_OF_COMPANY_STATIONS            :{BLACK}Open list of company's stations
+ STR_TOOLBAR_TOOLTIP_DISPLAY_COMPANY_FINANCES                    :{BLACK}Open company finances information
+ STR_TOOLBAR_TOOLTIP_DISPLAY_COMPANY_GENERAL                     :{BLACK}Open general company information
+@@ -408,12 +408,12 @@ STR_TOOLBAR_TOOLTIP_BUILD_AIRPORTS                              :{BLACK}Build ai
+ STR_TOOLBAR_TOOLTIP_LANDSCAPING                                 :{BLACK}Open landscaping menu, tree menu, or place a sign
+ STR_TOOLBAR_TOOLTIP_SHOW_SOUND_MUSIC_WINDOW                     :{BLACK}Open sound/music window
+ STR_TOOLBAR_TOOLTIP_SHOW_LAST_MESSAGE_NEWS                      :{BLACK}Open last message/news report, messages history or delete all messages
+-STR_TOOLBAR_TOOLTIP_LAND_BLOCK_INFORMATION                      :{BLACK}Open land information, screenshot menu, OpenTTD credits, or developer tools
++STR_TOOLBAR_TOOLTIP_LAND_BLOCK_INFORMATION                      :{BLACK}Open land information, screenshot menu, Transport Empire credits, or developer tools
+ STR_TOOLBAR_TOOLTIP_SWITCH_TOOLBAR                              :{BLACK}Switch toolbars
+ 
+ # Extra tooltips for the scenario editor toolbar
+ STR_SCENEDIT_TOOLBAR_TOOLTIP_SAVE_SCENARIO_LOAD_SCENARIO        :{BLACK}Save scenario, load scenario, abandon scenario editor, exit
+-STR_SCENEDIT_TOOLBAR_OPENTTD                                    :{YELLOW}OpenTTD
++STR_SCENEDIT_TOOLBAR_OPENTTD                                    :{YELLOW}Transport Empire
+ STR_SCENEDIT_TOOLBAR_SCENARIO_EDITOR                            :{YELLOW}Scenario Editor
+ STR_SCENEDIT_TOOLBAR_TOOLTIP_MOVE_THE_STARTING_DATE_BACKWARD    :{BLACK}Move the starting date backward 1 year
+ STR_SCENEDIT_TOOLBAR_TOOLTIP_MOVE_THE_STARTING_DATE_FORWARD     :{BLACK}Move the starting date forward 1 year
+@@ -474,7 +474,7 @@ STR_TOWN_MENU_TOWN_DIRECTORY                                    :Town directory
+ STR_TOWN_MENU_FOUND_TOWN                                        :Found town
+ 
+ # Subsidies menu
+-STR_SUBSIDIES_MENU_SUBSIDIES                                    :Subsidies
++STR_SUBSIDIES_MENU_SUBSIDIES                                    :Contracts
+ 
+ # Graph menu
+ STR_GRAPH_MENU_OPERATING_PROFIT_GRAPH                           :Operating profit graph
+@@ -530,7 +530,7 @@ STR_ABOUT_MENU_TOGGLE_CONSOLE                                   :Toggle console
+ STR_ABOUT_MENU_AI_DEBUG                                         :AI/Game script debug
+ STR_ABOUT_MENU_SCREENSHOT                                       :Screenshot
+ STR_ABOUT_MENU_SHOW_FRAMERATE                                   :Show frame rate
+-STR_ABOUT_MENU_ABOUT_OPENTTD                                    :About 'OpenTTD'
++STR_ABOUT_MENU_ABOUT_OPENTTD                                    :About Transport Empire
+ STR_ABOUT_MENU_SPRITE_ALIGNER                                   :Sprite aligner
+ STR_ABOUT_MENU_TOGGLE_BOUNDING_BOXES                            :Toggle bounding boxes
+ STR_ABOUT_MENU_TOGGLE_DIRTY_BLOCKS                              :Toggle colouring of dirty blocks
+@@ -918,14 +918,14 @@ STR_NEWS_SHOW_VEHICLE_GROUP_TOOLTIP                             :{BLACK}Open the
+ STR_NEWS_STATION_NO_LONGER_ACCEPTS_CARGO_LIST                   :{WHITE}{STATION} no longer accepts: {CARGO_LIST}
+ STR_NEWS_STATION_NOW_ACCEPTS_CARGO_LIST                         :{WHITE}{STATION} now accepts: {CARGO_LIST}
+ 
+-STR_NEWS_OFFER_OF_SUBSIDY_EXPIRED                               :{BIG_FONT}{BLACK}Offer of subsidy expired:{}{}{STRING} from {STRING2} to {STRING2} will now not attract a subsidy
+-STR_NEWS_SUBSIDY_WITHDRAWN_SERVICE                              :{BIG_FONT}{BLACK}Subsidy withdrawn:{}{}{STRING} service from {STRING2} to {STRING2} is no longer subsidised
+-STR_NEWS_SERVICE_SUBSIDY_OFFERED                                :{BIG_FONT}{BLACK}Service subsidy offered:{}{}First {STRING} from {STRING2} to {STRING2} will attract a {UNITS_YEARS_OR_MINUTES} subsidy from the local authority!
++STR_NEWS_OFFER_OF_SUBSIDY_EXPIRED                               :{BIG_FONT}{BLACK}Offer of contract expired:{}{}{STRING} from {STRING2} to {STRING2} will now not attract a contract
++STR_NEWS_SUBSIDY_WITHDRAWN_SERVICE                              :{BIG_FONT}{BLACK}Contract withdrawn:{}{}{STRING} service from {STRING2} to {STRING2} is no longer contracted
++STR_NEWS_SERVICE_SUBSIDY_OFFERED                                :{BIG_FONT}{BLACK}Service contract offered:{}{}First {STRING} from {STRING2} to {STRING2} will attract a {UNITS_YEARS_OR_MINUTES} contract from the local authority!
+ ###length 4
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay 50% extra for the next {UNITS_YEARS_OR_MINUTES}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay double rates for the next {UNITS_YEARS_OR_MINUTES}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_TRIPLE                         :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay triple rates for the next {UNITS_YEARS_OR_MINUTES}!
+-STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}Service subsidy awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay quadruple rates for the next {UNITS_YEARS_OR_MINUTES}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_HALF                           :{BIG_FONT}{BLACK}Service contract awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay 50% extra for the next {UNITS_YEARS_OR_MINUTES}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_DOUBLE                         :{BIG_FONT}{BLACK}Service contract awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay double rates for the next {UNITS_YEARS_OR_MINUTES}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_TRIPLE                         :{BIG_FONT}{BLACK}Service contract awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay triple rates for the next {UNITS_YEARS_OR_MINUTES}!
++STR_NEWS_SERVICE_SUBSIDY_AWARDED_QUADRUPLE                      :{BIG_FONT}{BLACK}Service contract awarded to {RAW_STRING}!{}{}{STRING} from {STRING2} to {STRING2} will pay quadruple rates for the next {UNITS_YEARS_OR_MINUTES}!
+ 
+ STR_NEWS_ROAD_REBUILDING_MONTHS                                 :{BIG_FONT}{BLACK}Traffic chaos in {TOWN}!{}{}Road rebuilding programme funded by {RAW_STRING} brings 6 months of misery to motorists!
+ STR_NEWS_ROAD_REBUILDING_MINUTES                                :{BIG_FONT}{BLACK}Traffic chaos in {TOWN}!{}{}Road rebuilding programme funded by {RAW_STRING} brings 6 minutes of misery to motorists!
+@@ -1032,7 +1032,7 @@ STR_GAME_OPTIONS_LANGUAGE_TOOLTIP                               :{BLACK}Select t
+ STR_GAME_OPTIONS_LANGUAGE_PERCENTAGE                            :{RAW_STRING} ({NUM}% completed)
+ 
+ STR_GAME_OPTIONS_FULLSCREEN                                     :{BLACK}Fullscreen
+-STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :{BLACK}Check this box to play OpenTTD fullscreen mode
++STR_GAME_OPTIONS_FULLSCREEN_TOOLTIP                             :{BLACK}Check this box to play Transport Empire fullscreen mode
+ 
+ STR_GAME_OPTIONS_RESOLUTION                                     :{BLACK}Screen resolution
+ STR_GAME_OPTIONS_RESOLUTION_TOOLTIP                             :{BLACK}Select the screen resolution to use
+@@ -1040,7 +1040,7 @@ STR_GAME_OPTIONS_RESOLUTION_OTHER                               :other
+ STR_GAME_OPTIONS_RESOLUTION_ITEM                                :{NUM}x{NUM}
+ 
+ STR_GAME_OPTIONS_VIDEO_ACCELERATION                             :{BLACK}Hardware acceleration
+-STR_GAME_OPTIONS_VIDEO_ACCELERATION_TOOLTIP                     :{BLACK}Check this box to allow OpenTTD to try to use hardware acceleration. A changed setting will only be applied upon game restart
++STR_GAME_OPTIONS_VIDEO_ACCELERATION_TOOLTIP                     :{BLACK}Check this box to allow Transport Empire to try to use hardware acceleration. A changed setting will only be applied upon game restart
+ STR_GAME_OPTIONS_VIDEO_ACCELERATION_RESTART                     :{WHITE}The setting will only take effect after a game restart
+ 
+ STR_GAME_OPTIONS_VIDEO_VSYNC                                    :{BLACK}VSync
+@@ -1069,7 +1069,7 @@ STR_GAME_OPTIONS_GUI_SCALE_5X                                   :5x
+ 
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_FRAME                       :{BLACK}Automated survey
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY                             :{BLACK}Participate in automated survey
+-STR_GAME_OPTIONS_PARTICIPATE_SURVEY_TOOLTIP                     :{BLACK}When enabled, OpenTTD will transmit a survey when leaving a game
++STR_GAME_OPTIONS_PARTICIPATE_SURVEY_TOOLTIP                     :{BLACK}When enabled, Transport Empire will transmit a survey when leaving a game
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_LINK                        :{BLACK}About survey and privacy
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_LINK_TOOLTIP                :{BLACK}This opens a browser with more information about the automated survey
+ STR_GAME_OPTIONS_PARTICIPATE_SURVEY_PREVIEW                     :{BLACK}Preview survey result
+@@ -1300,17 +1300,17 @@ STR_CONFIG_SETTING_CONSTRUCTION_SPEED_HELPTEXT                  :Limit the amoun
+ STR_CONFIG_SETTING_VEHICLE_BREAKDOWNS                           :Vehicle breakdowns: {STRING2}
+ STR_CONFIG_SETTING_VEHICLE_BREAKDOWNS_HELPTEXT                  :Control how often inadequately serviced vehicles may break down
+ 
+-STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER                           :Subsidy multiplier: {STRING2}
+-STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER_HELPTEXT                  :Set how much is paid for subsidised connections
++STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER                           :Contract multiplier: {STRING2}
++STR_CONFIG_SETTING_SUBSIDY_MULTIPLIER_HELPTEXT                  :Set how much is paid for contracted connections
+ 
+-STR_CONFIG_SETTING_SUBSIDY_DURATION                             :Subsidy duration: {STRING2}
++STR_CONFIG_SETTING_SUBSIDY_DURATION                             :Contract duration: {STRING2}
+ ###length 2
+-STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT                    :Set the number of years for which a subsidy is awarded
+-STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT_PERIODS            :Set the number of periods for which a subsidy is awarded
++STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT                    :Set the number of years for which a contract is awarded
++STR_CONFIG_SETTING_SUBSIDY_DURATION_HELPTEXT_PERIODS            :Set the number of periods for which a contract is awarded
+ 
+ STR_CONFIG_SETTING_SUBSIDY_DURATION_VALUE                       :{UNITS_YEARS_OR_PERIODS}
+ ###setting-zero-is-special
+-STR_CONFIG_SETTING_SUBSIDY_DURATION_DISABLED                    :No subsidies
++STR_CONFIG_SETTING_SUBSIDY_DURATION_DISABLED                    :No contracts
+ 
+ STR_CONFIG_SETTING_CONSTRUCTION_COSTS                           :Construction costs: {STRING2}
+ STR_CONFIG_SETTING_CONSTRUCTION_COSTS_HELPTEXT                  :Set level of construction and purchase costs
+@@ -1527,7 +1527,7 @@ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES                        :Vehicles never
+ STR_CONFIG_SETTING_NEVER_EXPIRE_VEHICLES_HELPTEXT               :When enabled, all vehicle models remain available forever after their introduction
+ 
+ STR_CONFIG_SETTING_TIMEKEEPING_UNITS                            :Timekeeping: {STRING2}
+-STR_CONFIG_SETTING_TIMEKEEPING_UNITS_HELPTEXT                   :Select the timekeeping units of the game. This cannot be changed later.{}{}Calendar-based is the classic OpenTTD experience, with a year consisting of 12 months, and each month having 28-31 days.{}{}In Wallclock-based time, cargo production and financials are instead based on one-minute increments, which is about as long as a 30 day month takes in Calendar-based mode. These are grouped into 12-minute periods, equivalent to a year in Calendar-based mode.{}{}In either mode there is always a classic calendar, which is used for introduction dates of vehicles, houses, and other infrastructure
++STR_CONFIG_SETTING_TIMEKEEPING_UNITS_HELPTEXT                   :Select the timekeeping units of the game. This cannot be changed later.{}{}Calendar-based is the classic Transport Empire experience, with a year consisting of 12 months, and each month having 28-31 days.{}{}In Wallclock-based time, cargo production and financials are instead based on one-minute increments, which is about as long as a 30 day month takes in Calendar-based mode. These are grouped into 12-minute periods, equivalent to a year in Calendar-based mode.{}{}In either mode there is always a classic calendar, which is used for introduction dates of vehicles, houses, and other infrastructure
+ ###length 2
+ STR_CONFIG_SETTING_TIMEKEEPING_UNITS_CALENDAR                   :Calendar
+ STR_CONFIG_SETTING_TIMEKEEPING_UNITS_WALLCLOCK                  :Wallclock
+@@ -1922,8 +1922,8 @@ STR_CONFIG_SETTING_NEWS_NEW_VEHICLES_HELPTEXT                   :Display a newsp
+ STR_CONFIG_SETTING_NEWS_CHANGES_ACCEPTANCE                      :Changes to cargo acceptance: {STRING2}
+ STR_CONFIG_SETTING_NEWS_CHANGES_ACCEPTANCE_HELPTEXT             :Display messages about stations changing acceptance of some cargoes
+ 
+-STR_CONFIG_SETTING_NEWS_SUBSIDIES                               :Subsidies: {STRING2}
+-STR_CONFIG_SETTING_NEWS_SUBSIDIES_HELPTEXT                      :Display a newspaper about subsidy related events
++STR_CONFIG_SETTING_NEWS_SUBSIDIES                               :Contracts: {STRING2}
++STR_CONFIG_SETTING_NEWS_SUBSIDIES_HELPTEXT                      :Display a newspaper about contract related events
+ 
+ STR_CONFIG_SETTING_NEWS_GENERAL_INFORMATION                     :General information: {STRING2}
+ STR_CONFIG_SETTING_NEWS_GENERAL_INFORMATION_HELPTEXT            :Display newspaper about general events, such as purchase of exclusive rights or funding of road reconstruction
+@@ -2188,7 +2188,7 @@ STR_CONFIG_ERROR_INVALID_GRF                                    :{WHITE}... igno
+ STR_CONFIG_ERROR_INVALID_GRF_NOT_FOUND                          :not found
+ STR_CONFIG_ERROR_INVALID_GRF_UNSAFE                             :unsafe for static use
+ STR_CONFIG_ERROR_INVALID_GRF_SYSTEM                             :system NewGRF
+-STR_CONFIG_ERROR_INVALID_GRF_INCOMPATIBLE                       :incompatible to this version of OpenTTD
++STR_CONFIG_ERROR_INVALID_GRF_INCOMPATIBLE                       :incompatible to this version of Transport Empire
+ STR_CONFIG_ERROR_INVALID_GRF_UNKNOWN                            :unknown
+ STR_CONFIG_ERROR_INVALID_SAVEGAME_COMPRESSION_LEVEL             :{WHITE}... compression level '{RAW_STRING}' is not valid
+ STR_CONFIG_ERROR_INVALID_SAVEGAME_COMPRESSION_ALGORITHM         :{WHITE}... savegame format '{RAW_STRING}' is not available. Reverting to '{RAW_STRING}'
+@@ -2196,7 +2196,7 @@ STR_CONFIG_ERROR_INVALID_BASE_GRAPHICS_NOT_FOUND                :{WHITE}... igno
+ STR_CONFIG_ERROR_INVALID_BASE_SOUNDS_NOT_FOUND                  :{WHITE}... ignoring Base Sounds set '{RAW_STRING}': not found
+ STR_CONFIG_ERROR_INVALID_BASE_MUSIC_NOT_FOUND                   :{WHITE}... ignoring Base Music set '{RAW_STRING}': not found
+ STR_CONFIG_ERROR_OUT_OF_MEMORY                                  :{WHITE}Out of memory
+-STR_CONFIG_ERROR_SPRITECACHE_TOO_BIG                            :{WHITE}Allocating {BYTES} of spritecache failed. The spritecache was reduced to {BYTES}. This will reduce the performance of OpenTTD. To reduce memory requirements you can try to disable 32bpp graphics and/or zoom-in levels
++STR_CONFIG_ERROR_SPRITECACHE_TOO_BIG                            :{WHITE}Allocating {BYTES} of spritecache failed. The spritecache was reduced to {BYTES}. This will reduce the performance of Transport Empire. To reduce memory requirements you can try to disable 32bpp graphics and/or zoom-in levels
+ 
+ # Video initalization errors
+ STR_VIDEO_DRIVER_ERROR                                          :{WHITE}Error with video settings...
+@@ -2204,9 +2204,11 @@ STR_VIDEO_DRIVER_ERROR_NO_HARDWARE_ACCELERATION                 :{WHITE}... no c
+ STR_VIDEO_DRIVER_ERROR_HARDWARE_ACCELERATION_CRASH              :{WHITE}... GPU driver crashed the game. Hardware acceleration disabled
+ 
+ # Intro window
+-STR_INTRO_CAPTION                                               :{WHITE}OpenTTD {REV}
++STR_INTRO_CAPTION                                               :{WHITE}Transport Empire
+ 
+ STR_INTRO_NEW_GAME                                              :{BLACK}New Game
++STR_INTRO_QUICK_START                                           :{BLACK}Quick Start
++STR_INTRO_WORLD_GENERATION                                      :{BLACK}World Generation
+ STR_INTRO_LOAD_GAME                                             :{BLACK}Load Game
+ STR_INTRO_PLAY_SCENARIO                                         :{BLACK}Play Scenario
+ STR_INTRO_PLAY_HEIGHTMAP                                        :{BLACK}Play Heightmap
+@@ -2224,6 +2226,8 @@ STR_INTRO_GAMESCRIPT_SETTINGS                                   :{BLACK}Game Scr
+ STR_INTRO_QUIT                                                  :{BLACK}Exit
+ 
+ STR_INTRO_TOOLTIP_NEW_GAME                                      :{BLACK}Start a new game. Ctrl+Click skips map configuration
++STR_INTRO_TOOLTIP_QUICK_START                                   :{BLACK}Open the Coastal Valley scenario: hills, a river, forests, a sample bus route, and the tutorial. Play this again to replay it
++STR_INTRO_TOOLTIP_WORLD_GENERATION                              :{BLACK}Choose the map size, number of towns, climate, and other generation settings
+ STR_INTRO_TOOLTIP_LOAD_GAME                                     :{BLACK}Load a saved game
+ STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP                                :{BLACK}Start a new game, using a heightmap as landscape
+ STR_INTRO_TOOLTIP_PLAY_SCENARIO                                 :{BLACK}Start a new game, using a customised scenario
+@@ -2243,14 +2247,14 @@ STR_INTRO_TOOLTIP_NEWGRF_SETTINGS                               :{BLACK}Open New
+ STR_INTRO_TOOLTIP_ONLINE_CONTENT                                :{BLACK}Check for new and updated content to download
+ STR_INTRO_TOOLTIP_AI_SETTINGS                                   :{BLACK}Open AI settings
+ STR_INTRO_TOOLTIP_GAMESCRIPT_SETTINGS                           :{BLACK}Open Game script settings
+-STR_INTRO_TOOLTIP_QUIT                                          :{BLACK}Exit 'OpenTTD'
++STR_INTRO_TOOLTIP_QUIT                                          :{BLACK}Exit Transport Empire
+ 
+ STR_INTRO_BASESET                                               :{BLACK}The currently selected base graphics set is missing {NUM} sprite{P "" s}. Please check for updates for the baseset.
+-STR_INTRO_TRANSLATION                                           :{BLACK}This translation misses {NUM} string{P "" s}. Please help make OpenTTD better by signing up as translator. See readme.txt for details.
++STR_INTRO_TRANSLATION                                           :{BLACK}This translation misses {NUM} string{P "" s}. Please help make Transport Empire better by signing up as translator. See readme.txt for details.
+ 
+ # Quit window
+ STR_QUIT_CAPTION                                                :{WHITE}Exit
+-STR_QUIT_ARE_YOU_SURE_YOU_WANT_TO_EXIT_OPENTTD                  :{YELLOW}Are you sure you want to exit OpenTTD?
++STR_QUIT_ARE_YOU_SURE_YOU_WANT_TO_EXIT_OPENTTD                  :{YELLOW}Are you sure you want to exit Transport Empire?
+ STR_QUIT_YES                                                    :{BLACK}Yes
+ STR_QUIT_NO                                                     :{BLACK}No
+ 
+@@ -2267,7 +2271,7 @@ STR_HELP_WINDOW_README                                          :{BLACK}Readme
+ STR_HELP_WINDOW_CHANGELOG                                       :{BLACK}Changelog
+ STR_HELP_WINDOW_KNOWN_BUGS                                      :{BLACK}Known Bugs
+ STR_HELP_WINDOW_LICENSE                                         :{BLACK}License
+-STR_HELP_WINDOW_MAIN_WEBSITE                                    :{BLACK}OpenTTD
++STR_HELP_WINDOW_MAIN_WEBSITE                                    :{BLACK}Transport Empire
+ STR_HELP_WINDOW_MANUAL_WIKI                                     :{BLACK}Manual / Wiki
+ STR_HELP_WINDOW_BUGTRACKER                                      :{BLACK}Report a Bug
+ STR_HELP_WINDOW_COMMUNITY                                       :{BLACK}Community
+@@ -2349,7 +2353,7 @@ STR_FACE_SIMPLE                                                 :{BLACK}Simple
+ STR_FACE_SIMPLE_TOOLTIP                                         :{BLACK}Simple face selection
+ STR_FACE_LOAD                                                   :{BLACK}Load
+ STR_FACE_LOAD_TOOLTIP                                           :{BLACK}Load favourite face
+-STR_FACE_LOAD_DONE                                              :{WHITE}Your favourite face has been loaded from the OpenTTD configuration file
++STR_FACE_LOAD_DONE                                              :{WHITE}Your favourite face has been loaded from the Transport Empire configuration file
+ STR_FACE_FACECODE                                               :{BLACK}Player face no.
+ STR_FACE_FACECODE_TOOLTIP                                       :{BLACK}View and/or set face number of the company president
+ STR_FACE_FACECODE_CAPTION                                       :{WHITE}View and/or set president face number
+@@ -2357,7 +2361,7 @@ STR_FACE_FACECODE_SET                                           :{WHITE}New face
+ STR_FACE_FACECODE_ERR                                           :{WHITE}Couldn't set president face number - must be a number between 0 and 4,294,967,295!
+ STR_FACE_SAVE                                                   :{BLACK}Save
+ STR_FACE_SAVE_TOOLTIP                                           :{BLACK}Save favourite face
+-STR_FACE_SAVE_DONE                                              :{WHITE}This face will be saved as your favourite in the OpenTTD configuration file
++STR_FACE_SAVE_DONE                                              :{WHITE}This face will be saved as your favourite in the Transport Empire configuration file
+ STR_FACE_EUROPEAN                                               :{BLACK}European
+ STR_FACE_SELECT_EUROPEAN                                        :{BLACK}Select European faces
+ STR_FACE_AFRICAN                                                :{BLACK}African
+@@ -2557,7 +2561,7 @@ STR_NETWORK_ASK_RELAY_YES_ONCE                                  :{BLACK}Yes, thi
+ STR_NETWORK_ASK_RELAY_YES_ALWAYS                                :{BLACK}Yes, don't ask again
+ 
+ STR_NETWORK_ASK_SURVEY_CAPTION                                  :Participate in automated survey?
+-STR_NETWORK_ASK_SURVEY_TEXT                                     :Would you like to participate in the automated survey?{}OpenTTD will transmit a survey when leaving a game.{}You can change this at any time under "Game Options".
++STR_NETWORK_ASK_SURVEY_TEXT                                     :Would you like to participate in the automated survey?{}Transport Empire will transmit a survey when leaving a game.{}You can change this at any time under "Game Options".
+ STR_NETWORK_ASK_SURVEY_PREVIEW                                  :Preview survey result
+ STR_NETWORK_ASK_SURVEY_LINK                                     :About survey and privacy
+ STR_NETWORK_ASK_SURVEY_NO                                       :No
+@@ -2693,9 +2697,9 @@ STR_CONTENT_SELECT_UPDATES_CAPTION_TOOLTIP                      :{BLACK}Mark all
+ STR_CONTENT_UNSELECT_ALL_CAPTION                                :{BLACK}Unselect all
+ STR_CONTENT_UNSELECT_ALL_CAPTION_TOOLTIP                        :{BLACK}Mark all content to be not downloaded
+ STR_CONTENT_SEARCH_EXTERNAL                                     :{BLACK}Search external websites
+-STR_CONTENT_SEARCH_EXTERNAL_TOOLTIP                             :{BLACK}Search content not available on OpenTTD's content service on websites not associated to OpenTTD
+-STR_CONTENT_SEARCH_EXTERNAL_DISCLAIMER_CAPTION                  :{WHITE}You are leaving OpenTTD!
+-STR_CONTENT_SEARCH_EXTERNAL_DISCLAIMER                          :{WHITE}The terms and conditions for downloading content from external websites vary.{}You will have to refer to the external sites for instructions how to install the content into OpenTTD.{}Do you want to continue?
++STR_CONTENT_SEARCH_EXTERNAL_TOOLTIP                             :{BLACK}Search content not available on the online content service on external websites
++STR_CONTENT_SEARCH_EXTERNAL_DISCLAIMER_CAPTION                  :{WHITE}You are leaving Transport Empire!
++STR_CONTENT_SEARCH_EXTERNAL_DISCLAIMER                          :{WHITE}The terms and conditions for downloading content from external websites vary.{}You will have to refer to the external sites for instructions how to install the content into Transport Empire.{}Do you want to continue?
+ STR_CONTENT_FILTER_TITLE                                        :{BLACK}Tag/name filter:
+ STR_CONTENT_OPEN_URL                                            :{BLACK}Website
+ STR_CONTENT_OPEN_URL_TOOLTIP                                    :{BLACK}Visit the website for this content
+@@ -2709,7 +2713,7 @@ STR_CONTENT_DETAIL_SUBTITLE_UNSELECTED                          :{SILVER}You hav
+ STR_CONTENT_DETAIL_SUBTITLE_SELECTED                            :{SILVER}You have selected this to be downloaded
+ STR_CONTENT_DETAIL_SUBTITLE_AUTOSELECTED                        :{SILVER}This dependency has been selected to be downloaded
+ STR_CONTENT_DETAIL_SUBTITLE_ALREADY_HERE                        :{SILVER}You already have this
+-STR_CONTENT_DETAIL_SUBTITLE_DOES_NOT_EXIST                      :{SILVER}This content is unknown and can't be downloaded in OpenTTD
++STR_CONTENT_DETAIL_SUBTITLE_DOES_NOT_EXIST                      :{SILVER}This content is unknown and can't be downloaded in Transport Empire
+ 
+ STR_CONTENT_DETAIL_UPDATE                                       :{SILVER}This is a replacement for an existing {STRING}
+ STR_CONTENT_DETAIL_NAME                                         :{SILVER}Name: {WHITE}{RAW_STRING}
+@@ -2721,7 +2725,7 @@ STR_CONTENT_DETAIL_FILESIZE                                     :{SILVER}Downloa
+ STR_CONTENT_DETAIL_SELECTED_BECAUSE_OF                          :{SILVER}Selected because of: {WHITE}{RAW_STRING}
+ STR_CONTENT_DETAIL_DEPENDENCIES                                 :{SILVER}Dependencies: {WHITE}{RAW_STRING}
+ STR_CONTENT_DETAIL_TAGS                                         :{SILVER}Tags: {WHITE}{RAW_STRING}
+-STR_CONTENT_NO_ZLIB                                             :{WHITE}OpenTTD is built without "zlib" support...
++STR_CONTENT_NO_ZLIB                                             :{WHITE}Transport Empire is built without "zlib" support...
+ STR_CONTENT_NO_ZLIB_SUB                                         :{WHITE}... downloading content is not possible!
+ 
+ # Order of these is important!
+@@ -2750,13 +2754,13 @@ STR_CONTENT_ERROR_COULD_NOT_DOWNLOAD_FILE_NOT_WRITABLE          :{WHITE}... file
+ STR_CONTENT_ERROR_COULD_NOT_EXTRACT                             :{WHITE}Could not decompress the downloaded file
+ 
+ STR_MISSING_GRAPHICS_SET_CAPTION                                :{WHITE}Missing graphics
+-STR_MISSING_GRAPHICS_SET_MESSAGE                                :{BLACK}OpenTTD requires graphics to function but none could be found. Do you allow OpenTTD to download and install these graphics?
++STR_MISSING_GRAPHICS_SET_MESSAGE                                :{BLACK}Transport Empire requires graphics to function but none could be found. Do you allow Transport Empire to download and install these graphics?
+ STR_MISSING_GRAPHICS_YES_DOWNLOAD                               :{BLACK}Yes, download the graphics
+-STR_MISSING_GRAPHICS_NO_QUIT                                    :{BLACK}No, exit OpenTTD
++STR_MISSING_GRAPHICS_NO_QUIT                                    :{BLACK}No, exit Transport Empire
+ 
+ STR_MISSING_GRAPHICS_ERROR_TITLE                                :{WHITE}Downloading failed
+ STR_MISSING_GRAPHICS_ERROR                                      :{BLACK}Downloading graphics failed.{}Please download graphics manually.
+-STR_MISSING_GRAPHICS_ERROR_QUIT                                 :{BLACK}Exit OpenTTD
++STR_MISSING_GRAPHICS_ERROR_QUIT                                 :{BLACK}Exit Transport Empire
+ 
+ # Transparency settings window
+ STR_TRANSPARENCY_CAPTION                                        :{WHITE}Transparency Options
+@@ -3227,10 +3231,10 @@ STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headqua
+ STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Company-owned land
+ 
+ # About OpenTTD window
+-STR_ABOUT_OPENTTD                                               :{WHITE}About OpenTTD
++STR_ABOUT_OPENTTD                                               :{WHITE}About Transport Empire
+ STR_ABOUT_ORIGINAL_COPYRIGHT                                    :{BLACK}Original copyright {COPYRIGHT} 1995 Chris Sawyer, All rights reserved
+-STR_ABOUT_VERSION                                               :{BLACK}OpenTTD version {REV}
+-STR_ABOUT_COPYRIGHT_OPENTTD                                     :{BLACK}OpenTTD {COPYRIGHT} 2002-{RAW_STRING} The OpenTTD team
++STR_ABOUT_VERSION                                               :{BLACK}Transport Empire version {REV}
++STR_ABOUT_COPYRIGHT_OPENTTD                                     :{BLACK}Based on OpenTTD {COPYRIGHT} 2002-{RAW_STRING} The OpenTTD team
+ 
+ # Framerate display window
+ STR_FRAMERATE_CAPTION                                           :{WHITE}Frame Rate
+@@ -3364,7 +3368,7 @@ STR_MAPGEN_QUANTITY_OF_RIVERS                                   :{BLACK}Rivers:
+ STR_MAPGEN_SMOOTHNESS                                           :{BLACK}Smoothness:
+ STR_MAPGEN_VARIETY                                              :{BLACK}Variety distribution:
+ STR_MAPGEN_GENERATE                                             :{WHITE}Generate
+-STR_MAPGEN_GENERATE_TOOLTIP                                     :{BLACK}Create the world and play OpenTTD!
++STR_MAPGEN_GENERATE_TOOLTIP                                     :{BLACK}Create the world and play Transport Empire!
+ STR_MAPGEN_NEWGRF_SETTINGS                                      :{BLACK}NewGRF Settings
+ STR_MAPGEN_NEWGRF_SETTINGS_TOOLTIP                              :{BLACK}Open NewGRF settings
+ STR_MAPGEN_AI_SETTINGS                                          :{BLACK}AI Settings
+@@ -3412,7 +3416,7 @@ STR_MAPGEN_HEIGHTMAP_ROTATION                                   :{BLACK}Heightma
+ STR_MAPGEN_HEIGHTMAP_NAME                                       :{BLACK}Heightmap name:
+ STR_MAPGEN_HEIGHTMAP_NAME_TOOLTIP                               :{BLACK}The name of the heightmap image file
+ STR_MAPGEN_HEIGHTMAP_SIZE_LABEL                                 :{BLACK}Size:
+-STR_MAPGEN_HEIGHTMAP_SIZE_LABEL_TOOLTIP                         :{BLACK}The size of the source heightmap image. For best results, each edge should match an available map edge length in OpenTTD, such as 256, 512, 1024, etc.
++STR_MAPGEN_HEIGHTMAP_SIZE_LABEL_TOOLTIP                         :{BLACK}The size of the source heightmap image. For best results, each edge should match an available map edge length in Transport Empire, such as 256, 512, 1024, etc.
+ STR_MAPGEN_HEIGHTMAP_SIZE                                       :{ORANGE}{NUM} x {NUM}
+ 
+ STR_MAPGEN_TERRAIN_TYPE_QUERY_CAPT                              :{WHITE}Target peak height
+@@ -3434,6 +3438,9 @@ STR_SE_MAPGEN_FLAT_WORLD_HEIGHT_UP                              :{BLACK}Move the
+ STR_SE_MAPGEN_FLAT_WORLD_HEIGHT_QUERY_CAPT                      :{WHITE}Change height of flat land
+ 
+ # Map generation progress
++STR_IE_TOWN_WITH_COUNT                                          :{STRING} (about {NUM} towns)
++STR_IE_MANY_TOWNS_CAPTION                                       :{WHITE}Many towns
++STR_IE_MANY_TOWNS_MESSAGE                                       :{YELLOW}This map will place about {NUM} towns. On a 4096 by 4096 map, Normal density is about 6,144 towns, and generating it is slow on a phone.{}{}Quick Start uses a 256 by 256 map and about 15 towns.{}{}Generate this large map anyway?
+ STR_GENERATION_WORLD                                            :{WHITE}Generating World...
+ STR_GENERATION_ABORT                                            :{BLACK}Abort
+ STR_GENERATION_ABORT_CAPTION                                    :{WHITE}Abort World Generation
+@@ -3504,7 +3511,7 @@ STR_NEWGRF_SETTINGS_PARAMETER_NONE                              :None
+ STR_NEWGRF_SETTINGS_NO_INFO                                     :{BLACK}No information available
+ STR_NEWGRF_SETTINGS_NOT_FOUND                                   :{RED}Matching file not found
+ STR_NEWGRF_SETTINGS_DISABLED                                    :{RED}Disabled
+-STR_NEWGRF_SETTINGS_INCOMPATIBLE                                :{RED}Incompatible with this version of OpenTTD
++STR_NEWGRF_SETTINGS_INCOMPATIBLE                                :{RED}Incompatible with this version of Transport Empire
+ 
+ # NewGRF save preset window
+ STR_SAVE_PRESET_CAPTION                                         :{WHITE}Save preset
+@@ -3571,13 +3578,13 @@ STR_NEWGRF_ERROR_MSG_ERROR                                      :{RED}Error: {SI
+ STR_NEWGRF_ERROR_MSG_FATAL                                      :{RED}Fatal: {SILVER}{RAW_STRING}
+ STR_NEWGRF_ERROR_FATAL_POPUP                                    :{WHITE}The NewGRF "{RAW_STRING}" has returned a fatal error: {}{STRING5}
+ STR_NEWGRF_ERROR_POPUP                                          :{WHITE}The NewGRF "{RAW_STRING}" has returned an error: {}{STRING5}
+-STR_NEWGRF_ERROR_VERSION_NUMBER                                 :{1:RAW_STRING} will not work with the TTDPatch version reported by OpenTTD
++STR_NEWGRF_ERROR_VERSION_NUMBER                                 :{1:RAW_STRING} will not work with the TTDPatch version reported by Transport Empire
+ STR_NEWGRF_ERROR_DOS_OR_WINDOWS                                 :{1:RAW_STRING} is for the {2:RAW_STRING} version of TTD
+ STR_NEWGRF_ERROR_UNSET_SWITCH                                   :{1:RAW_STRING} is designed to be used with {2:RAW_STRING}
+ STR_NEWGRF_ERROR_INVALID_PARAMETER                              :Invalid parameter for {1:RAW_STRING}: parameter {2:RAW_STRING} ({3:NUM})
+ STR_NEWGRF_ERROR_LOAD_BEFORE                                    :{1:RAW_STRING} must be loaded before {2:RAW_STRING}
+ STR_NEWGRF_ERROR_LOAD_AFTER                                     :{1:RAW_STRING} must be loaded after {2:RAW_STRING}
+-STR_NEWGRF_ERROR_OTTD_VERSION_NUMBER                            :{1:RAW_STRING} requires OpenTTD version {2:RAW_STRING} or better
++STR_NEWGRF_ERROR_OTTD_VERSION_NUMBER                            :{1:RAW_STRING} requires Transport Empire version {2:RAW_STRING} or better
+ STR_NEWGRF_ERROR_AFTER_TRANSLATED_FILE                          :the GRF file it was designed to translate
+ STR_NEWGRF_ERROR_TOO_MANY_NEWGRFS_LOADED                        :Too many NewGRFs are loaded
+ STR_NEWGRF_ERROR_STATIC_GRF_CAUSES_DESYNC                       :Loading {1:RAW_STRING} as static NewGRF with {2:RAW_STRING} could cause desyncs
+@@ -3595,7 +3602,7 @@ STR_NEWGRF_ERROR_INDPROD_CALLBACK                               :Invalid industr
+ 
+ # NewGRF related 'general' warnings
+ STR_NEWGRF_POPUP_CAUTION_CAPTION                                :{WHITE}Caution!
+-STR_NEWGRF_CONFIRMATION_TEXT                                    :{YELLOW}You are about to make changes to a running game. This can crash OpenTTD or break the game state. Do not file bug reports about these issues.{}Are you absolutely sure about this?
++STR_NEWGRF_CONFIRMATION_TEXT                                    :{YELLOW}You are about to make changes to a running game. This can crash Transport Empire or break the game state. Do not file bug reports about these issues.{}Are you absolutely sure about this?
+ 
+ STR_NEWGRF_DUPLICATE_GRFID                                      :{WHITE}Can't add file: duplicate GRF ID
+ STR_NEWGRF_COMPATIBLE_LOADED                                    :{ORANGE}Matching file not found (compatible GRF loaded)
+@@ -3604,7 +3611,7 @@ STR_NEWGRF_TOO_MANY_NEWGRFS                                     :{WHITE}Can't ad
+ STR_NEWGRF_COMPATIBLE_LOAD_WARNING                              :{WHITE}Compatible GRF(s) loaded for missing files
+ STR_NEWGRF_DISABLED_WARNING                                     :{WHITE}Missing GRF file(s) have been disabled
+ STR_NEWGRF_UNPAUSE_WARNING_TITLE                                :{YELLOW}Missing GRF file(s)
+-STR_NEWGRF_UNPAUSE_WARNING                                      :{WHITE}Unpausing can crash OpenTTD. Do not file bug reports for subsequent crashes.{}Do you really want to unpause?
++STR_NEWGRF_UNPAUSE_WARNING                                      :{WHITE}Unpausing can crash Transport Empire. Do not file bug reports for subsequent crashes.{}Do you really want to unpause?
+ 
+ # NewGRF status
+ STR_NEWGRF_LIST_NONE                                            :None
+@@ -3766,11 +3773,11 @@ STR_GOAL_QUESTION_BUTTON_SURRENDER                              :Surrender
+ STR_GOAL_QUESTION_BUTTON_CLOSE                                  :Close
+ 
+ # Subsidies window
+-STR_SUBSIDIES_CAPTION                                           :{WHITE}Subsidies
+-STR_SUBSIDIES_OFFERED_TITLE                                     :{BLACK}Subsidies on offer for services taking:
++STR_SUBSIDIES_CAPTION                                           :{WHITE}Contracts
++STR_SUBSIDIES_OFFERED_TITLE                                     :{BLACK}Contracts on offer for services taking:
+ STR_SUBSIDIES_OFFERED_FROM_TO                                   :{ORANGE}{STRING} from {STRING2} to {STRING2}{YELLOW} ({STRING1})
+ STR_SUBSIDIES_NONE                                              :{ORANGE}- None -
+-STR_SUBSIDIES_SUBSIDISED_TITLE                                  :{BLACK}Services already subsidised:
++STR_SUBSIDIES_SUBSIDISED_TITLE                                  :{BLACK}Services already contracted:
+ STR_SUBSIDIES_SUBSIDISED_FROM_TO                                :{ORANGE}{STRING} from {STRING2} to {STRING2}{YELLOW} ({COMPANY}{YELLOW}, {STRING1})
+ STR_SUBSIDIES_TOOLTIP_CLICK_ON_SERVICE_TO_CENTER                :{BLACK}Click on service to centre main view on industry/town. Ctrl+Click to open a new viewport on industry/town location
+ STR_SUBSIDIES_OFFERED_EXPIRY_DATE                               :by {DATE_SHORT}
+@@ -4919,7 +4926,7 @@ STR_TEXTFILE_README_CAPTION                                     :{WHITE}{STRING}
+ STR_TEXTFILE_CHANGELOG_CAPTION                                  :{WHITE}{STRING} changelog of {RAW_STRING}
+ STR_TEXTFILE_LICENCE_CAPTION                                    :{WHITE}{STRING} licence of {RAW_STRING}
+ STR_TEXTFILE_SURVEY_RESULT_CAPTION                              :{WHITE}Preview of survey result
+-STR_TEXTFILE_GAME_MANUAL_CAPTION                                :{WHITE}OpenTTD document '{RAW_STRING}'
++STR_TEXTFILE_GAME_MANUAL_CAPTION                                :{WHITE}Transport Empire document '{RAW_STRING}'
+ 
+ 
+ # Vehicle loading indicators
+diff --git a/src/table/settings/difficulty_settings.ini b/src/table/settings/difficulty_settings.ini
+index 9503f99..c19f3fb 100644
+--- a/src/table/settings/difficulty_settings.ini
++++ b/src/table/settings/difficulty_settings.ini
+@@ -83,7 +83,7 @@ var      = difficulty.number_towns
+ type     = SLE_UINT8
+ from     = SLV_97
+ flags    = SF_NEWGAME_ONLY
+-def      = 2
++def      = 1
+ min      = 0
+ max      = 4
+ interval = 1
+@@ -109,7 +109,7 @@ var      = difficulty.max_loan
+ type     = SLE_UINT32
+ from     = SLV_97
+ flags    = SF_NEWGAME_ONLY | SF_SCENEDIT_TOO | SF_GUI_CURRENCY | SF_GUI_0_IS_SPECIAL
+-def      = 300000
++def      = 50000
+ min      = LOAN_INTERVAL
+ max      = MAX_LOAN_LIMIT
+ pre_cb   = [](auto &new_value) { new_value = (new_value + LOAN_INTERVAL / 2) / LOAN_INTERVAL * LOAN_INTERVAL; return true; }
+diff --git a/src/table/settings/misc_settings.ini b/src/table/settings/misc_settings.ini
+index 7710fc9..cefacd8 100644
+--- a/src/table/settings/misc_settings.ini
++++ b/src/table/settings/misc_settings.ini
+@@ -206,7 +206,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""small_size""
+ type     = SLE_UINT
+ var      = _fcsettings.small.size
+-def      = 10
++def      = 12
+ min      = 0
+ max      = 72
+ 
+@@ -215,7 +215,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""medium_size""
+ type     = SLE_UINT
+ var      = _fcsettings.medium.size
+-def      = 12
++def      = 16
+ min      = 0
+ max      = 72
+ 
+@@ -224,7 +224,7 @@ ifdef    = HAS_TRUETYPE_FONT
+ name     = ""large_size""
+ type     = SLE_UINT
+ var      = _fcsettings.large.size
+-def      = 16
++def      = 22
+ min      = 0
+ max      = 72
+ 
+@@ -265,7 +265,7 @@ def      = true
+ name     = ""min_button_size""
+ type     = SLE_UINT
+ var      = _settings_client.gui.min_button
+-def      = 48
++def      = 56
+ min      = 0
+ max      = 100
+ cat      = SC_EXPERT
+diff --git a/src/table/settings/world_settings.ini b/src/table/settings/world_settings.ini
+index 68225db..1f51be7 100644
+--- a/src/table/settings/world_settings.ini
++++ b/src/table/settings/world_settings.ini
+@@ -188,7 +188,7 @@ var      = game_creation.variety
+ type     = SLE_UINT8
+ from     = SLV_197
+ flags    = SF_GUI_DROPDOWN | SF_NEWGAME_ONLY
+-def      = 0
++def      = 4
+ min      = 0
+ max      = 5
+ str      = STR_CONFIG_SETTING_VARIETY
+diff --git a/src/widgets/intro_widget.h b/src/widgets/intro_widget.h
+index d32d335..527c850 100644
+--- a/src/widgets/intro_widget.h
++++ b/src/widgets/intro_widget.h
+@@ -36,6 +36,7 @@ enum SelectGameIntroWidgets : WidgetID {
+ 	WID_SGI_GS_SETTINGS,           ///< Game Script button.
+ 	WID_SGI_TUTORIAL,              ///< Tutorial button.
+ 	WID_SGI_EXIT,                  ///< Exit button.
++	WID_SGI_ADVANCED_WORLD,        ///< Advanced world-generation button.
+ };
+ 
+ #endif /* WIDGETS_INTRO_WIDGET_H */

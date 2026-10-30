@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clone the pinned Android port and apply the Industry Empire patches.
+# Clone the pinned Android port and apply the Transport Empire patches.
 # Does not start the APK build. See docs/BUILD.md.
 set -euo pipefail
 
@@ -29,8 +29,8 @@ git -C project/jni/sdl2_image submodule update --init --depth 1 external/jpeg ex
 git -C project/jni/sdl2_mixer submodule update --init --depth 1 external/ogg
 
 git apply "$ROOT/patches/sdl-android-portability.patch"
-git apply --binary "$ROOT/patches/industry-empire-icon.patch"
-git -C project/jni/application/openttd/src apply "$ROOT/patches/openttd-industry-empire.patch"
+git apply --binary "$ROOT/patches/transport-empire-icon.patch"
+git -C project/jni/application/openttd/src apply "$ROOT/patches/transport-empire.patch"
 
 ln -sfn openttd project/jni/application/src
 echo "Source tree ready at $DEST"

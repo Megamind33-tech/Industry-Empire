@@ -1,6 +1,6 @@
 # Corresponding source
 
-Industry Empire is built from these upstream commits. No proprietary Transport Tycoon Deluxe data is included.
+Transport Empire is built from these upstream commits. No proprietary Transport Tycoon Deluxe data is included.
 
 | Component | Repository | Commit |
 | --- | --- | --- |
@@ -20,6 +20,6 @@ Base sets, downloaded at build time from cdn.openttd.org:
 | OpenSFX | 1.0.3 | CC BY-SA 3.0 |
 | OpenMSX | 0.4.2 | GPL-2.0 |
 
-Local changes are `patches/sdl-android-portability.patch` and `patches/openttd-industry-empire.patch`. `scripts/bootstrap-android.sh` clones the commits above and applies those patches.
+Local changes are `patches/sdl-android-portability.patch` and `patches/transport-empire.patch`. `scripts/bootstrap-android.sh` clones the commits above and applies those patches.
 
 OpenTTD 15.3 is the newest stable desktop release. The maintained Android port used here is OpenTTD 14.1. The 14.1 simulation still includes rail, road, ships, aircraft, industries, towns, finances, AI companies, scenarios, NewGRF, and multiplayer.

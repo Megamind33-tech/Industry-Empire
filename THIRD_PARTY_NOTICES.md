@@ -1,6 +1,6 @@
 # Third-party notices
 
-Industry Empire uses the following works. Full licence texts ship inside the upstream trees and the base-set archives.
+Transport Empire uses the following works. Full licence texts ship inside the upstream trees and the base-set archives.
 
 | Work | Licence | Notice |
 | --- | --- | --- |

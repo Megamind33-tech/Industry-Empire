@@ -1,6 +1,6 @@
 # Graphics audit for 1.2
 
-Industry Empire 1.2 keeps the OpenTTD 14.1 simulation and changes the art the player sees. The pictures below were taken from the Linux SDL build of this same source. They are not captures from an Android framebuffer. The emulator guest in this environment never reached adb.
+Transport Empire 1.2 keeps the OpenTTD 14.1 simulation and changes the art the player sees. The pictures below were taken from the Linux SDL build of this same source. They are not captures from an Android framebuffer. The emulator guest in this environment never reached adb.
 
 ## What shipped
 

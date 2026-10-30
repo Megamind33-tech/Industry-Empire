@@ -18,7 +18,7 @@ Quick Start opens the Coastal Valley scenario when that file is in the install. 
 
 World Generation is still on the main menu. If the chosen settings would place more than about 150 towns, the game asks before it starts. The town dropdown shows the estimate, for example `Normal (about 6144 towns)` on a 4096 map.
 
-The tutorial is a game script in the APK at `game/industry-empire-tutorial`. On Coastal Valley it points at the sample route and asks for a second bus, then passenger income. On a generated map the same goals are the first bus and passenger income. Skip tutorial and Replay tutorial are buttons on that page.
+The tutorial is a game script in the APK at `game/transport-empire-tutorial`. On Coastal Valley it points at the sample route and asks for a second bus, then passenger income. On a generated map the same goals are the first bus and passenger income. Skip tutorial and Replay tutorial are buttons on that page.
 
 An upgrade deletes the previous `openttd.cfg` so an old 4096×4096 setting does not come back. Saved games are left in place.
 

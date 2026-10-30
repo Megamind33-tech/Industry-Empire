@@ -1,6 +1,10 @@
-# Industry Empire
+# Transport Empire
 
-Industry Empire is a transport-company game for Android. It keeps the OpenTTD 14.1 simulation. Version 1.2 uses OpenGFX2 Classic for the terrain, buildings, and vehicles, and still includes OpenGFX 7.1 so the older look can be selected in Game Options.
+Transport Empire is a transport-tycoon game for Android. You start with one vehicle's worth of cash, win government and business contracts, and grow from a local operator into a multinational. It plays against human rivals (PvP) or AI companies (PvAI).
+
+Version 2.0 (in progress) renames the game, replaces OpenTTD branding, renames subsidies to contracts, and starts companies with 20,000 in cash and a 50,000 loan limit. The visual overhaul (Blender-rendered isometric art and a new mobile HUD) is tracked in `docs/ROADMAP.md`. No 2.0 APK has been built yet.
+
+The simulation engine is OpenTTD 14.1. Version 1.2 uses OpenGFX2 Classic for the terrain, buildings, and vehicles, and still includes OpenGFX 7.1 so the older look can be selected in Game Options.
 
 It is an independent release. It is not made or endorsed by the OpenTTD developers.
 
@@ -12,7 +16,7 @@ The playable build is a debug-signed release APK (arm64-v8a and x86_64) for Andr
 
 SHA-256: `ba98e9ee3d0162e4c44dbe38110d52c3d8259545d95464f0ba862817c2feba45`
 
-Install that file on an Android device. The launcher name is Industry Empire. Quick Start opens the Coastal Valley scenario: a coast, a river, hills, forests, a few towns, and a sample bus route. Android may ask you to allow installs from the browser. Upgrading replaces the old configuration file so a previous 4096×4096 map is not kept. Saved games stay.
+Install that file on an Android device. The launcher name is Transport Empire. Quick Start opens the Coastal Valley scenario: a coast, a river, hills, forests, a few towns, and a sample bus route. Android may ask you to allow installs from the browser. Upgrading replaces the old configuration file so a previous 4096×4096 map is not kept. Saved games stay.
 
 The 1.0 and 1.1 APKs remain in `dist/` if you want the previous graphics.
 

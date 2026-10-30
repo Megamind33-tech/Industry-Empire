@@ -58,4 +58,4 @@ These are in `patches/sdl-android-portability.patch`:
 - Skip `sdl2_mixer/Android.mk` (it includes codec trees this game does not build) and compile libogg from `sdl2_mixer/external/ogg`.
 - Nested submodules: FreeType, HarfBuzz, libpng, jpeg, zlib, and libogg.
 
-`patches/openttd-industry-empire.patch` disables fmt 9 consteval on Clang 17+ (NDK r29 fails the stock check) and sets the main-menu title to Industry Empire.
+`patches/transport-empire.patch` disables fmt 9 consteval on Clang 17+ (NDK r29 fails the stock check), replaces OpenTTD branding in the English strings with Transport Empire (the About window keeps the required OpenTTD copyright credit), renames subsidies to contracts, and lowers the starting cash to 20,000 and the default loan limit to 50,000.

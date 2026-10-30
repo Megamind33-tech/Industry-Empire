@@ -4,7 +4,7 @@ This is an engineering record, not a law-firm opinion. Unresolved items are mark
 
 ## What may be distributed
 
-- OpenTTD and this port's GPL-2.0 code may be sold or given away if recipients get the GPL-2.0 text and corresponding source. This repository names the exact upstream commits and carries the Industry Empire patches.
+- OpenTTD and this port's GPL-2.0 code may be sold or given away if recipients get the GPL-2.0 text and corresponding source. This repository names the exact upstream commits and carries the Transport Empire patches.
 - OpenGFX 7.1, OpenGFX2 Classic 0.8.1, and OpenMSX 0.4.2 are GPL-2.0. OpenGFX2 High Def is the same licence and is not in the APK because of its size. See `docs/GRAPHICS.md`.
 - OpenSFX 1.0.3 is CC BY-SA 3.0. Attribution is in `THIRD_PARTY_NOTICES.md`. Derivatives of those sounds must stay under CC BY-SA 3.0. The sound pack is shipped unchanged.
 - The launcher icon in `patches/` and the Android tree is original artwork for this release and is covered by GPL-2.0 with the rest of the application resources.
@@ -12,7 +12,7 @@ This is an engineering record, not a law-firm opinion. Unresolved items are mark
 
 ## Identity
 
-The launcher name and main-menu title are Industry Empire. The in-game About window still says OpenTTD and names the OpenTTD team and Chris Sawyer's original copyright. That is intentional.
+The launcher name and main-menu title are Transport Empire. The in-game About window still says OpenTTD and names the OpenTTD team and Chris Sawyer's original copyright. That is intentional.
 
 ## Open items
 
